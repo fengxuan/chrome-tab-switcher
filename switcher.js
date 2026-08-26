@@ -704,8 +704,19 @@ function moveWithinRow(delta) {
   render();
 }
 
+function renderedTabs() {
+  const tabsById = new Map(
+    visibleTabs().map((tab) => [String(tab.id), tab])
+  );
+  return [...document.querySelectorAll(".tab-card")]
+    .map((card) => tabsById.get(card.dataset.tabId))
+    .filter(Boolean);
+}
+
 function moveWithTab(delta) {
-  const tabs = visibleTabs();
+  // Small windows can be merged after the final chunk of a long window, so
+  // the rendered card order is not always the same as the window data order.
+  const tabs = renderedTabs();
   if (!tabs.length) return;
 
   const currentIndex = tabs.findIndex((tab) => tab.id === appState.selectedTabId);

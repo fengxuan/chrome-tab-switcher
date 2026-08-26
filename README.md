@@ -13,12 +13,12 @@
 
 - 点击工具栏中的扩展图标打开面板；
 - 使用快捷键 `Command + Shift + Space`（Windows/Linux 默认是 `Ctrl + Shift + Space`）；
-- 如果快捷键冲突，打开 `chrome://extensions/shortcuts` 自行修改。
+- 自定义打开切换器的快捷键：打开 `chrome://extensions/shortcuts`，找到“Chrome Tab Switcher”，点击对应快捷键输入框后录入新的组合键；
 
 ## 使用
 
 - `←` / `→`：在当前行内切换标签页（合并窗口时可跨窗口切换）
-- `Tab` / `Shift + Tab`：按窗口顺序连续或反向切换所有标签页，到达窗口末尾后进入下一个窗口
+- `Tab` / `Shift + Tab`：按面板中标签卡片的显示顺序连续或反向切换所有标签页
 - `↑` / `↓`：切换上一行/下一行，并尽量保持横向位置
 - `Enter`：激活选中的标签页，并切换到对应 Chrome 窗口
 - 鼠标悬停标签卡片时，点击右上角 `×`：关闭该标签页
