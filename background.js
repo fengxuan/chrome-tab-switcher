@@ -219,8 +219,41 @@ function usableWindows(allWindows) {
     ));
 }
 
+function tabDisplayPriority(tab) {
+  if (tab.audible) return 2;
+  if (recentTabIds.includes(tab.id)) return 1;
+  return 0;
+}
+
+function compareTabs(first, second) {
+  const priorityDifference = tabDisplayPriority(second)
+    - tabDisplayPriority(first);
+  if (priorityDifference !== 0) return priorityDifference;
+
+  const firstRecentIndex = recentTabIds.indexOf(first.id);
+  const secondRecentIndex = recentTabIds.indexOf(second.id);
+  if (firstRecentIndex >= 0 || secondRecentIndex >= 0) {
+    const recentIndexDifference = (firstRecentIndex < 0 ? Number.MAX_SAFE_INTEGER : firstRecentIndex)
+      - (secondRecentIndex < 0 ? Number.MAX_SAFE_INTEGER : secondRecentIndex);
+    if (recentIndexDifference !== 0) return recentIndexDifference;
+  }
+
+  return first.index - second.index;
+}
+
+function windowDisplayPriority(window) {
+  return Math.max(
+    0,
+    ...(window.tabs || []).map(tabDisplayPriority)
+  );
+}
+
 function sortWindows(allWindows) {
   return [...allWindows].sort((first, second) => {
+    const displayPriorityDifference = windowDisplayPriority(second)
+      - windowDisplayPriority(first);
+    if (displayPriorityDifference !== 0) return displayPriorityDifference;
+
     const tabCountDifference = (second.tabs || []).length - (first.tabs || []).length;
     if (tabCountDifference !== 0) return tabCountDifference;
     if (first.id === sourceWindowId) return -1;
@@ -234,7 +267,7 @@ function normalizeWindows(allWindows) {
   const windows = sortWindows(usableWindows(allWindows)).map((window) => {
     const rawTabs = (window.tabs || [])
       .filter((tab) => tab.id !== undefined && !isExtensionPage(tabUrl(tab)))
-      .sort((first, second) => first.index - second.index)
+      .sort(compareTabs)
     const tabs = rawTabs.map((tab) => normalizeTab(tab, "", window.id));
 
     return {
