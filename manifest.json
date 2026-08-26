@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "description": "__MSG_extensionDescription__",
   "permissions": ["tabs", "windows", "storage", "bookmarks"],
+  "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js"
   },
@@ -18,6 +19,13 @@
         "mac": "Command+Shift+Space"
       },
       "description": "__MSG_commandDescription__"
+    },
+    "open-favorites": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "__MSG_favoritesCommandDescription__"
     }
   }
 }

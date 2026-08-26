@@ -11,6 +11,9 @@
   "commandDescription": {
     "message": "打开可视化标签切换器"
   },
+  "favoritesCommandDescription": {
+    "message": "打开收藏夹标签页"
+  },
   "languageCode": {
     "message": "zh-CN"
   },

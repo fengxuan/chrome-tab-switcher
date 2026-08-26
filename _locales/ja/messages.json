@@ -11,6 +11,9 @@
   "commandDescription": {
     "message": "ビジュアルタブ切り替えを開く"
   },
+  "favoritesCommandDescription": {
+    "message": "ブックマークしたタブを開く"
+  },
   "languageCode": {
     "message": "ja"
   },

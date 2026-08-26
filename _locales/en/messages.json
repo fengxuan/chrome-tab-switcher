@@ -11,6 +11,9 @@
   "commandDescription": {
     "message": "Open the visual tab switcher"
   },
+  "favoritesCommandDescription": {
+    "message": "Open bookmarked tabs"
+  },
   "languageCode": {
     "message": "en"
   },

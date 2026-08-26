@@ -41,6 +41,8 @@ let openSwitcherPromise = null;
 let tabsChangedTimer = null;
 let resizeRequest = null;
 let resizeInFlight = false;
+const bookmarkFaviconCache = new Map();
+const bookmarkFaviconRequests = new Map();
 
 function localizedMessage(name, substitutions = [], fallback = "") {
   const message = chrome.i18n?.getMessage?.(name, substitutions);
@@ -310,14 +312,32 @@ function normalizeWindows(allWindows) {
   });
 }
 
+function isGarbledBookmarkName(name = "") {
+  const text = String(name).trim();
+  if (!text) return true;
+
+  // Replacement/control characters and repeated Latin-1 markers are common
+  // signs of a bookmark title decoded with the wrong character encoding.
+  if (/[\u0000-\u001F\u007F-\u009F\uFFFD?？]/u.test(text)) return true;
+  const mojibakeMarkers = text.match(/[ÃÂâäæåçèéïð]/gu) || [];
+  return mojibakeMarkers.length >= 2 || /(?:Ã.|Â.)/u.test(text);
+}
+
+function bookmarkFolderLabel(folderNames) {
+  const lastName = folderNames.at(-1) || "";
+  return isGarbledBookmarkName(lastName) ? "" : lastName.trim();
+}
+
 function normalizeBookmarkGroups(bookmarkTree, faviconByUrl = new Map()) {
   const groups = new Map();
 
   function visit(node, folderNames = [], folderIds = []) {
     if (node.url) {
       const groupKey = folderIds.join("/") || "uncategorized";
-      const label = folderNames.join(" / ")
-        || localizedMessage("uncategorizedBookmarks", [], "未分类");
+      const label = bookmarkFolderLabel(folderNames)
+        || (folderNames.length === 0
+          ? localizedMessage("uncategorizedBookmarks", [], "未分类")
+          : "");
       if (!groups.has(groupKey)) {
         groups.set(groupKey, {
           id: `bookmark-folder-${groupKey}`,
@@ -523,10 +543,19 @@ function requestSwitcherResize(contentHeight, frameHeight) {
   })().catch(() => {});
 }
 
-async function toggleSwitcherInternal() {
+async function toggleSwitcherInternal({ favoritesOnly = false } = {}) {
   const existingWindowIds = await findSwitcherWindowIds();
   if (existingWindowIds.length > 0) {
     switcherWindowId = existingWindowIds[0];
+    if (favoritesOnly) {
+      await chrome.windows.update(switcherWindowId, { focused: true })
+        .catch(() => {});
+      chrome.runtime.sendMessage({
+        type: "SET_VIEW",
+        favoritesOnly: true
+      }).catch(() => {});
+      return;
+    }
     await closeSwitcherWindow();
     return;
   }
@@ -544,7 +573,7 @@ async function toggleSwitcherInternal() {
   const windows = normalizeWindows(allWindows);
   const size = getPopupSize(windows, currentWindow);
   const createOptions = {
-    url: SWITCHER_URL,
+    url: favoritesOnly ? `${SWITCHER_URL}?view=favorites` : SWITCHER_URL,
     type: "popup",
     focused: true,
     width: size.width,
@@ -571,9 +600,9 @@ async function toggleSwitcherInternal() {
   await saveSessionState();
 }
 
-function toggleSwitcher() {
+function toggleSwitcher(options = {}) {
   if (openSwitcherPromise) return openSwitcherPromise;
-  openSwitcherPromise = toggleSwitcherInternal()
+  openSwitcherPromise = toggleSwitcherInternal(options)
     .catch(() => {})
     .finally(() => {
       openSwitcherPromise = null;
@@ -600,6 +629,67 @@ async function activateTab(tabId, windowId) {
 async function closeTab(tabId) {
   if (!Number.isInteger(tabId)) return;
   await chrome.tabs.remove(tabId).catch(() => {});
+}
+
+function bookmarkFaviconUrl(url = "") {
+  try {
+    const parsedUrl = new URL(url);
+    if (!/^https?:$/.test(parsedUrl.protocol)) return "";
+    return new URL("/favicon.ico", parsedUrl.origin).toString();
+  } catch {
+    return "";
+  }
+}
+
+async function fetchBookmarkFavicon(url) {
+  const faviconUrl = bookmarkFaviconUrl(url);
+  if (!faviconUrl) return "";
+
+  try {
+    const response = await fetch(faviconUrl, {
+      credentials: "omit",
+      cache: "force-cache",
+      redirect: "follow"
+    });
+    if (!response.ok) return "";
+
+    const blob = await response.blob();
+    if (!blob.size) return "";
+    const contentType = response.headers.get("content-type") || blob.type;
+    if (contentType && !contentType.toLowerCase().startsWith("image/")) {
+      return "";
+    }
+
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = "";
+    for (let start = 0; start < bytes.length; start += 8192) {
+      binary += String.fromCharCode(...bytes.subarray(start, start + 8192));
+    }
+    const mimeType = contentType || "image/x-icon";
+    return `data:${mimeType};base64,${btoa(binary)}`;
+  } catch {
+    return "";
+  }
+}
+
+function getBookmarkFavicon(url) {
+  if (bookmarkFaviconCache.has(url)) {
+    return Promise.resolve(bookmarkFaviconCache.get(url));
+  }
+  if (bookmarkFaviconRequests.has(url)) {
+    return bookmarkFaviconRequests.get(url);
+  }
+
+  const request = fetchBookmarkFavicon(url)
+    .then((faviconUrl) => {
+      bookmarkFaviconCache.set(url, faviconUrl);
+      return faviconUrl;
+    })
+    .finally(() => {
+      bookmarkFaviconRequests.delete(url);
+    });
+  bookmarkFaviconRequests.set(url, request);
+  return request;
 }
 
 async function openBookmark(url) {
@@ -694,6 +784,7 @@ function notifyTabsChanged() {
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === "open-tab-switcher") toggleSwitcher();
+  if (command === "open-favorites") toggleSwitcher({ favoritesOnly: true });
 });
 
 chrome.action.onClicked.addListener(() => toggleSwitcher());
@@ -723,6 +814,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "OPEN_BOOKMARK") {
     openBookmark(message.url);
     return false;
+  }
+
+  if (message?.type === "GET_BOOKMARK_FAVICON") {
+    getBookmarkFavicon(message.url)
+      .then((faviconUrl) => sendResponse({ ok: true, faviconUrl }))
+      .catch(() => sendResponse({ ok: true, faviconUrl: "" }));
+    return true;
   }
 
   if (message?.type === "CLOSE_SWITCHER") {

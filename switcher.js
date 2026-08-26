@@ -5,7 +5,8 @@ const appState = {
   selectedTabId: null,
   query: "",
   recentOnly: false,
-  favoritesOnly: false
+  favoritesOnly: new URLSearchParams(window.location.search).get("view")
+    === "favorites"
 };
 
 const TAB_CARD_WIDTH = 152;
@@ -393,11 +394,16 @@ function displayWindowRows(groups) {
 
 function createWindowSection(group) {
   const section = document.createElement("section");
-  section.className = "window-section";
+  section.className = `window-section${group.isBookmarkGroup && group.label
+    ? " is-bookmark-group"
+    : ""}`;
   section.dataset.windowId = String(group.window.id);
-  section.setAttribute("aria-label", group.window.windowLabel);
+  section.setAttribute(
+    "aria-label",
+    group.window.windowLabel || localizedMessage("favoritesFilterLabel", [], "收藏夹")
+  );
 
-  if (group.isBookmarkGroup) {
+  if (group.isBookmarkGroup && group.label) {
     const label = document.createElement("h2");
     label.className = "bookmark-group-label";
     label.textContent = group.label;
@@ -454,6 +460,23 @@ function createFavicon(tab) {
     slot.append(favicon);
     return slot;
   }
+
+  if (tab.isBookmark && tab.url) {
+    send({ type: "GET_BOOKMARK_FAVICON", url: tab.url })
+      .then((result) => {
+        if (!result?.ok || !result.faviconUrl || !slot.isConnected) return;
+        const favicon = document.createElement("img");
+        favicon.className = "favicon";
+        favicon.alt = "";
+        favicon.src = result.faviconUrl;
+        favicon.addEventListener("error", () => {
+          slot.replaceChildren(createFallbackFavicon(tab));
+        });
+        slot.replaceChildren(favicon);
+      })
+      .catch(() => {});
+  }
+
   slot.append(createFallbackFavicon(tab));
   return slot;
 }
@@ -962,8 +985,8 @@ function toggleRecentFilter() {
   render();
 }
 
-function toggleFavoritesFilter() {
-  appState.favoritesOnly = !appState.favoritesOnly;
+function setFavoritesFilter(favoritesOnly) {
+  appState.favoritesOnly = favoritesOnly;
   if (appState.favoritesOnly) appState.recentOnly = false;
   updateFavoritesFilterAccessibility();
 
@@ -972,6 +995,10 @@ function toggleFavoritesFilter() {
     appState.selectedTabId = visible[0]?.id ?? null;
   }
   render();
+}
+
+function toggleFavoritesFilter() {
+  setFavoritesFilter(!appState.favoritesOnly);
 }
 
 elements.recentFilter.addEventListener("click", toggleRecentFilter);
@@ -1031,6 +1058,9 @@ document.addEventListener("keydown", (event) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "TABS_CHANGED") scheduleRefresh();
+  if (message?.type === "SET_VIEW") {
+    setFavoritesFilter(Boolean(message.favoritesOnly));
+  }
 });
 
 function visualCardRows() {
