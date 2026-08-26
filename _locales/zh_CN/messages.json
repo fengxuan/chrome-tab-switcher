@@ -3,7 +3,7 @@
     "message": "Chrome 标签切换器"
   },
   "extensionDescription": {
-    "message": "在所有 Chrome 窗口中集中查看并切换标签页。"
+    "message": "在所有 Chrome 窗口中集中查看并切换标签页，也可以快速打开收藏夹中的书签。"
   },
   "actionTitle": {
     "message": "打开 Chrome 标签切换器"
@@ -37,6 +37,33 @@
   },
   "recentFilterShowRecentTitle": {
     "message": "点击只显示最近切换的标签页"
+  },
+  "favoritesFilterLabel": {
+    "message": "收藏夹"
+  },
+  "favoritesFilterAriaLabel": {
+    "message": "只显示收藏夹标签页"
+  },
+  "favoritesFilterShowAllTitle": {
+    "message": "点击显示全部标签页"
+  },
+  "favoritesFilterShowFavoritesTitle": {
+    "message": "点击只显示收藏夹标签页"
+  },
+  "favoritesSearchPlaceholder": {
+    "message": "搜索收藏夹标题、网址或拼音…"
+  },
+  "favoritesEmptyTitle": {
+    "message": "没有收藏的标签页"
+  },
+  "favoritesEmptyHint": {
+    "message": "请先在 Chrome 中添加书签，或换一个关键词试试。"
+  },
+  "uncategorizedBookmarks": {
+    "message": "未分类"
+  },
+  "untitledBookmarkFolder": {
+    "message": "未命名文件夹"
   },
   "hintControlSelection": {
     "message": "控制选择"

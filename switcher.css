@@ -129,6 +129,56 @@ button {
   padding: 0 13px;
 }
 
+.search-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.favorites-filter {
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 42px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--search-border);
+  border-radius: 10px;
+  background: var(--page-background);
+  box-shadow: 0 3px 12px var(--search-shadow);
+  padding: 0 11px;
+  color: var(--secondary-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 130ms ease, background 130ms ease, color 130ms ease, box-shadow 130ms ease;
+}
+
+.favorites-filter:hover,
+.favorites-filter:focus-visible,
+.favorites-filter[aria-pressed="true"] {
+  border-color: var(--selected-border);
+  outline: 0;
+  background: var(--selected-background);
+  box-shadow: 0 4px 12px var(--selected-shadow);
+  color: var(--selected-border);
+}
+
+.favorites-star {
+  color: currentColor;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.search-controls .search-box {
+  width: auto;
+  margin: 0;
+  flex: 1 1 auto;
+  max-width: none;
+}
+
 .search-icon {
   color: var(--secondary-text);
   font-size: 23px;
@@ -193,6 +243,25 @@ kbd {
 
 .window-section {
   min-width: 0;
+}
+
+.bookmark-group-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 1px;
+  padding: 0 3px;
+  color: var(--secondary-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: left;
+}
+
+.bookmark-group-label::before {
+  content: "★";
+  color: var(--selected-border);
+  font-size: 12px;
 }
 
 .window-row.is-merged {

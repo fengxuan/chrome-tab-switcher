@@ -310,6 +310,64 @@ function normalizeWindows(allWindows) {
   });
 }
 
+function normalizeBookmarkGroups(bookmarkTree) {
+  const groups = new Map();
+
+  function visit(node, folderNames = [], folderIds = []) {
+    if (node.url) {
+      const groupKey = folderIds.join("/") || "uncategorized";
+      const label = folderNames.join(" / ")
+        || localizedMessage("uncategorizedBookmarks", [], "未分类");
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, {
+          id: `bookmark-folder-${groupKey}`,
+          label,
+          tabs: []
+        });
+      }
+
+      const url = tabUrl(node);
+      groups.get(groupKey).tabs.push({
+        id: `bookmark-${node.id}`,
+        bookmarkId: node.id,
+        isBookmark: true,
+        windowId: null,
+        index: groups.get(groupKey).tabs.length,
+        title: node.title || url || localizedMessage(
+          "untitledTab",
+          [],
+          "未命名标签页"
+        ),
+        url,
+        host: tabHost(url),
+        favIconUrl: "",
+        pinned: false,
+        audible: false,
+        recentRank: 0,
+        windowLabel: label
+      });
+      return;
+    }
+
+    const nextFolderNames = node.id === "0"
+      ? folderNames
+      : [...folderNames, node.title || localizedMessage(
+        "untitledBookmarkFolder",
+        [],
+        "未命名文件夹"
+      )];
+    const nextFolderIds = node.id === "0"
+      ? folderIds
+      : [...folderIds, node.id];
+    (node.children || []).forEach((child) =>
+      visit(child, nextFolderNames, nextFolderIds)
+    );
+  }
+
+  (bookmarkTree || []).forEach((root) => visit(root));
+  return [...groups.values()];
+}
+
 function getContentHeight(windowCount) {
   const groupGaps = Math.max(0, windowCount - 1) * WINDOW_ROW_GAP;
   const windowRows = windowCount * WINDOW_ROW_HEIGHT;
@@ -367,8 +425,10 @@ function getDisplayRowStats(windows) {
 async function getState() {
   await getSwitcherWindowId();
   const allWindows = await chrome.windows.getAll({ populate: true });
+  const bookmarkTree = await chrome.bookmarks.getTree().catch(() => []);
   return {
     windows: normalizeWindows(allWindows),
+    bookmarkGroups: normalizeBookmarkGroups(bookmarkTree),
     sourceWindowId,
     sourceTabId
   };
@@ -533,6 +593,49 @@ async function closeTab(tabId) {
   await chrome.tabs.remove(tabId).catch(() => {});
 }
 
+async function openBookmark(url) {
+  if (!url) return;
+
+  const allWindows = await chrome.windows.getAll({ populate: true });
+  const matchingTab = allWindows
+    .filter((window) => window.id !== switcherWindowId)
+    .flatMap((window) => window.tabs || [])
+    .find((tab) => tabUrl(tab) === url && !isExtensionPage(tabUrl(tab)));
+
+  if (matchingTab) {
+    await activateTab(matchingTab.id, matchingTab.windowId);
+    return;
+  }
+
+  const targetWindow = allWindows.find((window) =>
+    window.id === sourceWindowId
+    && window.id !== switcherWindowId
+    && VISIBLE_WINDOW_TYPES.has(window.type)
+  ) || allWindows.find((window) =>
+    window.id !== switcherWindowId
+    && VISIBLE_WINDOW_TYPES.has(window.type)
+  );
+
+  let opened = false;
+  if (targetWindow?.id !== undefined) {
+    const createdTab = await chrome.tabs.create({
+      windowId: targetWindow.id,
+      url,
+      active: true
+    }).catch(() => null);
+    if (createdTab) {
+      opened = true;
+      await chrome.windows.update(targetWindow.id, { focused: true })
+        .catch(() => {});
+    }
+  }
+  if (!opened) {
+    await chrome.windows.create({ url, focused: true }).catch(() => {});
+  }
+
+  await closeSwitcherWindow();
+}
+
 async function rememberRecentTab(tabId, windowId) {
   if (!Number.isInteger(tabId) || !Number.isInteger(windowId)) return;
 
@@ -608,6 +711,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
+  if (message?.type === "OPEN_BOOKMARK") {
+    openBookmark(message.url);
+    return false;
+  }
+
   if (message?.type === "CLOSE_SWITCHER") {
     closeSwitcherWindow();
     return false;
@@ -640,6 +748,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     notifyTabsChanged();
   }
 });
+
+chrome.bookmarks.onCreated.addListener(notifyTabsChanged);
+chrome.bookmarks.onRemoved.addListener(notifyTabsChanged);
+chrome.bookmarks.onChanged.addListener(notifyTabsChanged);
+chrome.bookmarks.onMoved.addListener(notifyTabsChanged);
+chrome.bookmarks.onChildrenReordered.addListener(notifyTabsChanged);
 
 chrome.windows.onCreated.addListener(notifyTabsChanged);
 

@@ -3,7 +3,7 @@
     "message": "Chrome タブ切り替え"
   },
   "extensionDescription": {
-    "message": "すべての Chrome ウィンドウのタブをまとめて表示・切り替えます。"
+    "message": "すべての Chrome ウィンドウのタブをまとめて表示・切り替え、ブックマークにもすばやくアクセスできます。"
   },
   "actionTitle": {
     "message": "Chrome タブ切り替えを開く"
@@ -37,6 +37,33 @@
   },
   "recentFilterShowRecentTitle": {
     "message": "クリックして最近切り替えたタブのみ表示"
+  },
+  "favoritesFilterLabel": {
+    "message": "お気に入り"
+  },
+  "favoritesFilterAriaLabel": {
+    "message": "ブックマークしたタブのみ表示"
+  },
+  "favoritesFilterShowAllTitle": {
+    "message": "クリックしてすべてのタブを表示"
+  },
+  "favoritesFilterShowFavoritesTitle": {
+    "message": "クリックしてブックマークしたタブのみ表示"
+  },
+  "favoritesSearchPlaceholder": {
+    "message": "ブックマークをタイトル、URL、ピンインで検索…"
+  },
+  "favoritesEmptyTitle": {
+    "message": "ブックマークがありません"
+  },
+  "favoritesEmptyHint": {
+    "message": "Chrome でブックマークを追加するか、別のキーワードを試してください。"
+  },
+  "uncategorizedBookmarks": {
+    "message": "未分類"
+  },
+  "untitledBookmarkFolder": {
+    "message": "名前のないフォルダ"
   },
   "hintControlSelection": {
     "message": "選択を移動"

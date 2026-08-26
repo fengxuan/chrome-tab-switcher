@@ -1,9 +1,11 @@
 const appState = {
   windows: [],
+  bookmarkGroups: [],
   sourceTabId: null,
   selectedTabId: null,
   query: "",
-  recentOnly: false
+  recentOnly: false,
+  favoritesOnly: false
 };
 
 const TAB_CARD_WIDTH = 152;
@@ -106,7 +108,8 @@ const elements = {
   content: document.querySelector("#content"),
   empty: document.querySelector("#empty"),
   windowGroups: document.querySelector("#window-groups"),
-  recentFilter: document.querySelector("#recent-filter")
+  recentFilter: document.querySelector("#recent-filter"),
+  favoritesFilter: document.querySelector("#favorites-filter")
 };
 
 function localizedMessage(name, substitutions = [], fallback = name) {
@@ -134,6 +137,36 @@ function updateRecentFilterAccessibility() {
   );
 }
 
+function updateFavoritesFilterAccessibility() {
+  elements.favoritesFilter.setAttribute(
+    "aria-pressed",
+    String(appState.favoritesOnly)
+  );
+  elements.favoritesFilter.setAttribute(
+    "aria-label",
+    localizedMessage("favoritesFilterAriaLabel", [], "只显示收藏夹标签页")
+  );
+  elements.favoritesFilter.title = localizedMessage(
+    appState.favoritesOnly
+      ? "favoritesFilterShowAllTitle"
+      : "favoritesFilterShowFavoritesTitle",
+    [],
+    appState.favoritesOnly
+      ? "点击显示全部标签页"
+      : "点击只显示收藏夹标签页"
+  );
+  elements.recentFilter.hidden = appState.favoritesOnly;
+  elements.search.placeholder = localizedMessage(
+    appState.favoritesOnly
+      ? "favoritesSearchPlaceholder"
+      : "searchPlaceholder",
+    [],
+    appState.favoritesOnly
+      ? "搜索收藏夹标题、网址或拼音…"
+      : "搜索标题、网址或拼音…"
+  );
+}
+
 function applyTranslations() {
   document.documentElement.lang = localizedMessage(
     "languageCode",
@@ -141,11 +174,6 @@ function applyTranslations() {
     "zh-CN"
   );
   document.title = localizedMessage("switcherTitle", [], "Chrome 标签切换器");
-  elements.search.placeholder = localizedMessage(
-    "searchPlaceholder",
-    [],
-    "搜索标题、网址或拼音…"
-  );
   elements.empty.querySelector("h2").textContent = localizedMessage(
     "emptyNoMatch",
     [],
@@ -160,6 +188,11 @@ function applyTranslations() {
     "recentFilterLabel",
     [],
     "最近切换"
+  );
+  document.querySelector("#favorites-filter-label").textContent = localizedMessage(
+    "favoritesFilterLabel",
+    [],
+    "Favorites"
   );
   document.querySelector("#hint-control").textContent = localizedMessage(
     "hintControlSelection",
@@ -177,6 +210,7 @@ function applyTranslations() {
     "关闭"
   );
   updateRecentFilterAccessibility();
+  updateFavoritesFilterAccessibility();
 }
 
 function send(message) {
@@ -199,8 +233,28 @@ function visibleWindowGroups() {
     .filter((group) => group.tabs.length > 0);
 }
 
+function visibleBookmarkGroups() {
+  return appState.bookmarkGroups
+    .map((group) => ({
+      ...group,
+      isBookmarkGroup: true,
+      window: {
+        id: group.id,
+        windowLabel: group.label
+      },
+      tabs: group.tabs.filter(matchesQuery)
+    }))
+    .filter((group) => group.tabs.length > 0);
+}
+
+function visibleGroups() {
+  return appState.favoritesOnly
+    ? visibleBookmarkGroups()
+    : visibleWindowGroups();
+}
+
 function visibleTabs() {
-  return visibleWindowGroups().flatMap((group) => group.tabs);
+  return visibleGroups().flatMap((group) => group.tabs);
 }
 
 function isSmallWindowGroup(group) {
@@ -277,7 +331,7 @@ function displayWindowRows(groups) {
     for (let start = 0; start < group.tabs.length; start += cardCapacity) {
       const tabs = group.tabs.slice(start, start + cardCapacity);
       rows.push({
-        groups: [{ window: group.window, tabs }],
+        groups: [{ ...group, tabs }],
         canMergeSmallGroups: start + tabs.length === group.tabs.length
           && tabs.length < cardCapacity,
         smallTabCount: 0
@@ -342,6 +396,13 @@ function createWindowSection(group) {
   section.className = "window-section";
   section.dataset.windowId = String(group.window.id);
   section.setAttribute("aria-label", group.window.windowLabel);
+
+  if (group.isBookmarkGroup) {
+    const label = document.createElement("h2");
+    label.className = "bookmark-group-label";
+    label.textContent = group.label;
+    section.append(label);
+  }
 
   const cards = document.createElement("div");
   cards.className = "cards";
@@ -535,26 +596,29 @@ function createCard(tab) {
     indicators.append(statusIndicator);
   }
 
-  const closeButton = document.createElement("button");
-  closeButton.type = "button";
-  closeButton.className = "close-tab";
-  closeButton.setAttribute(
-    "aria-label",
-    localizedMessage(
-      "closeTabLabel",
-      [displayTitle],
-      `关闭标签页：${displayTitle}`
-    )
-  );
-  closeButton.title = localizedMessage("closeTabTitle", [], "关闭标签页");
-  closeButton.textContent = "×";
-  closeButton.addEventListener("click", (event) => {
-    event.stopPropagation();
-    closeTab(tab);
-  });
-  closeButton.addEventListener("keydown", (event) => {
-    event.stopPropagation();
-  });
+  let closeButton = null;
+  if (!tab.isBookmark) {
+    closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "close-tab";
+    closeButton.setAttribute(
+      "aria-label",
+      localizedMessage(
+        "closeTabLabel",
+        [displayTitle],
+        `关闭标签页：${displayTitle}`
+      )
+    );
+    closeButton.title = localizedMessage("closeTabTitle", [], "关闭标签页");
+    closeButton.textContent = "×";
+    closeButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeTab(tab);
+    });
+    closeButton.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+    });
+  }
 
   const favicon = createFavicon(tab);
   const title = document.createElement("span");
@@ -580,7 +644,7 @@ function createCard(tab) {
 
   card.append(
     indicators,
-    closeButton,
+    ...(closeButton ? [closeButton] : []),
     favicon,
     title,
     ...(tab.pinned ? [flags] : []),
@@ -599,7 +663,30 @@ function createCard(tab) {
 }
 
 function render({ centerSelected = true, revealSelected = true } = {}) {
-  const groups = visibleWindowGroups();
+  const groups = visibleGroups();
+  if (appState.favoritesOnly) {
+    elements.empty.querySelector("h2").textContent = localizedMessage(
+      "favoritesEmptyTitle",
+      [],
+      "没有收藏的标签页"
+    );
+    elements.empty.querySelector("p").textContent = localizedMessage(
+      "favoritesEmptyHint",
+      [],
+      "请先在 Chrome 中添加书签，或换一个关键词试试。"
+    );
+  } else {
+    elements.empty.querySelector("h2").textContent = localizedMessage(
+      "emptyNoMatch",
+      [],
+      "没有匹配的标签页"
+    );
+    elements.empty.querySelector("p").textContent = localizedMessage(
+      "emptyNoMatchHint",
+      [],
+      "换一个关键词试试，或清空搜索框查看全部标签。"
+    );
+  }
   elements.empty.hidden = groups.length !== 0;
   elements.content.hidden = groups.length === 0;
   if (!groups.length) {
@@ -787,6 +874,10 @@ function updateState(data) {
     ...window,
     tabs: window.tabs.map(indexTab)
   }));
+  appState.bookmarkGroups = (data.bookmarkGroups || []).map((group) => ({
+    ...group,
+    tabs: group.tabs.map(indexTab)
+  }));
   appState.sourceTabId = data.sourceTabId;
 
   const visible = visibleTabs();
@@ -820,6 +911,10 @@ function scheduleRefresh() {
 }
 
 function activate(tab) {
+  if (tab.isBookmark) {
+    send({ type: "OPEN_BOOKMARK", url: tab.url }).catch(() => {});
+    return;
+  }
   send({
     type: "ACTIVATE_TAB",
     tabId: tab.id,
@@ -855,6 +950,7 @@ function showLoadError() {
 }
 
 function toggleRecentFilter() {
+  if (appState.favoritesOnly) return;
   appState.recentOnly = !appState.recentOnly;
   elements.recentFilter.setAttribute("aria-pressed", String(appState.recentOnly));
   updateRecentFilterAccessibility();
@@ -866,8 +962,24 @@ function toggleRecentFilter() {
   render();
 }
 
+function toggleFavoritesFilter() {
+  appState.favoritesOnly = !appState.favoritesOnly;
+  if (appState.favoritesOnly) appState.recentOnly = false;
+  updateFavoritesFilterAccessibility();
+
+  const visible = visibleTabs();
+  if (!visible.some((tab) => tab.id === appState.selectedTabId)) {
+    appState.selectedTabId = visible[0]?.id ?? null;
+  }
+  render();
+}
+
 elements.recentFilter.addEventListener("click", toggleRecentFilter);
 elements.recentFilter.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+});
+elements.favoritesFilter.addEventListener("click", toggleFavoritesFilter);
+elements.favoritesFilter.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") event.stopPropagation();
 });
 

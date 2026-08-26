@@ -3,7 +3,7 @@
     "message": "Chrome Tab Switcher"
   },
   "extensionDescription": {
-    "message": "A visual switcher for tabs across all Chrome windows."
+    "message": "A visual switcher for tabs across all Chrome windows, with quick access to bookmarks."
   },
   "actionTitle": {
     "message": "Open Chrome Tab Switcher"
@@ -37,6 +37,33 @@
   },
   "recentFilterShowRecentTitle": {
     "message": "Click to show only recently switched tabs"
+  },
+  "favoritesFilterLabel": {
+    "message": "Favorites"
+  },
+  "favoritesFilterAriaLabel": {
+    "message": "Show only bookmarked tabs"
+  },
+  "favoritesFilterShowAllTitle": {
+    "message": "Click to show all tabs"
+  },
+  "favoritesFilterShowFavoritesTitle": {
+    "message": "Click to show only bookmarked tabs"
+  },
+  "favoritesSearchPlaceholder": {
+    "message": "Search bookmarks by title, URL, or pinyin…"
+  },
+  "favoritesEmptyTitle": {
+    "message": "No bookmarks"
+  },
+  "favoritesEmptyHint": {
+    "message": "Add a bookmark in Chrome, or try another keyword."
+  },
+  "uncategorizedBookmarks": {
+    "message": "Uncategorized"
+  },
+  "untitledBookmarkFolder": {
+    "message": "Untitled folder"
   },
   "hintControlSelection": {
     "message": "Navigate"

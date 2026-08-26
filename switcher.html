@@ -8,11 +8,17 @@
   </head>
   <body>
     <main class="switcher-shell">
-      <label class="search-box" for="search">
-        <span class="search-icon">⌕</span>
-        <input id="search" type="search" autocomplete="off" spellcheck="false" autofocus placeholder="搜索标题、网址或拼音…">
-        <kbd id="search-shortcut">⌘ K</kbd>
-      </label>
+      <div class="search-controls">
+        <button id="favorites-filter" class="favorites-filter" type="button" aria-pressed="false" aria-label="只显示收藏夹标签页" title="点击只显示收藏夹标签页">
+          <span class="favorites-star" aria-hidden="true">★</span>
+          <span id="favorites-filter-label">Favorites</span>
+        </button>
+        <label class="search-box" for="search">
+          <span class="search-icon">⌕</span>
+          <input id="search" type="search" autocomplete="off" spellcheck="false" autofocus placeholder="搜索标题、网址或拼音…">
+          <kbd id="search-shortcut">⌘ K</kbd>
+        </label>
+      </div>
 
         <div id="empty" class="empty-state" hidden>
           <div class="empty-icon">⌁</div>
