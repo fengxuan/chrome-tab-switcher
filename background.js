@@ -310,7 +310,7 @@ function normalizeWindows(allWindows) {
   });
 }
 
-function normalizeBookmarkGroups(bookmarkTree) {
+function normalizeBookmarkGroups(bookmarkTree, faviconByUrl = new Map()) {
   const groups = new Map();
 
   function visit(node, folderNames = [], folderIds = []) {
@@ -340,7 +340,9 @@ function normalizeBookmarkGroups(bookmarkTree) {
         ),
         url,
         host: tabHost(url),
-        favIconUrl: "",
+        // Bookmarks do not include favicon data. Reuse a favicon from an
+        // already-open tab when the URL is currently available.
+        favIconUrl: faviconByUrl.get(url) || "",
         pinned: false,
         audible: false,
         recentRank: 0,
@@ -426,9 +428,16 @@ async function getState() {
   await getSwitcherWindowId();
   const allWindows = await chrome.windows.getAll({ populate: true });
   const bookmarkTree = await chrome.bookmarks.getTree().catch(() => []);
+  const faviconByUrl = new Map();
+  allWindows.flatMap((window) => window.tabs || []).forEach((tab) => {
+    const url = tabUrl(tab);
+    if (url && tab.favIconUrl && !faviconByUrl.has(url)) {
+      faviconByUrl.set(url, tab.favIconUrl);
+    }
+  });
   return {
     windows: normalizeWindows(allWindows),
-    bookmarkGroups: normalizeBookmarkGroups(bookmarkTree),
+    bookmarkGroups: normalizeBookmarkGroups(bookmarkTree, faviconByUrl),
     sourceWindowId,
     sourceTabId
   };
