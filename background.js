@@ -13,7 +13,7 @@ const WINDOW_ROW_GAP = 7;
 const FOOTER_MARGIN_TOP = 4;
 const FOOTER_HEIGHT = 19;
 const DEFAULT_VISIBLE_WINDOWS = 7;
-const SWITCHER_MIN_HEIGHT = 300;
+const SWITCHER_MIN_HEIGHT = 260;
 const SMALL_WINDOW_TAB_LIMIT = 5;
 const MERGED_ROW_TAB_LIMIT = 10;
 const RECENT_TAB_LIMIT = 4;
@@ -25,8 +25,7 @@ const SWITCHER_SESSION_STATE_KEYS = [
 ];
 const SESSION_STATE_KEYS = [
   ...SWITCHER_SESSION_STATE_KEYS,
-  "recentTabIds",
-  "lastCompletedVideo"
+  "recentTabIds"
 ];
 const TABS_CHANGED_DEBOUNCE_MS = 100;
 
@@ -34,7 +33,6 @@ let switcherWindowId = null;
 let sourceWindowId = null;
 let sourceTabId = null;
 let recentTabIds = [];
-let lastCompletedVideo = null;
 let sessionStateLoaded = false;
 let sessionStateLoadPromise = null;
 let sessionStateWritePromise = Promise.resolve();
@@ -68,14 +66,6 @@ async function loadSessionState() {
           .filter((tabId, index, tabIds) => tabIds.indexOf(tabId) === index)
           .slice(0, RECENT_TAB_LIMIT);
       }
-      if (state.lastCompletedVideo
-        && Number.isInteger(state.lastCompletedVideo.tabId)
-        && Number.isInteger(state.lastCompletedVideo.windowId)) {
-        lastCompletedVideo = {
-          tabId: state.lastCompletedVideo.tabId,
-          windowId: state.lastCompletedVideo.windowId
-        };
-      }
     })().finally(() => {
       sessionStateLoaded = true;
       sessionStateLoadPromise = null;
@@ -90,8 +80,7 @@ async function saveSessionState() {
     switcherWindowId,
     sourceWindowId,
     sourceTabId,
-    recentTabIds,
-    lastCompletedVideo
+    recentTabIds
   };
   sessionStateWritePromise = sessionStateWritePromise
     .catch(() => {})
@@ -204,7 +193,6 @@ function normalizeTab(tab, windowLabel, windowId) {
     pinned: Boolean(tab.pinned),
     audible: Boolean(tab.audible),
     recentRank: recentIndex >= 0 ? recentIndex + 1 : 0,
-    videoCompleted: lastCompletedVideo?.tabId === tab.id,
     windowLabel
   };
 }
@@ -527,28 +515,7 @@ async function rememberRecentTab(tabId, windowId) {
   notifyTabsChanged();
 }
 
-async function rememberVideoCompletion(tabId, windowId) {
-  if (!Number.isInteger(tabId) || !Number.isInteger(windowId)) return;
-
-  await loadSessionState();
-  if (windowId === switcherWindowId) return;
-
-  const tab = await chrome.tabs.get(tabId).catch(() => null);
-  if (!tab || isExtensionPage(tabUrl(tab))) return;
-
-  if (
-    lastCompletedVideo?.tabId === tabId
-    && lastCompletedVideo?.windowId === windowId
-  ) {
-    return;
-  }
-
-  lastCompletedVideo = { tabId, windowId };
-  await saveSessionState();
-  notifyTabsChanged();
-}
-
-async function removeTabIndicators(tabId) {
+async function removeTabFromRecent(tabId) {
   if (!Number.isInteger(tabId)) return;
 
   await loadSessionState();
@@ -556,19 +523,9 @@ async function removeTabIndicators(tabId) {
     recentTabId !== tabId
   );
   const recentChanged = nextRecentTabIds.length !== recentTabIds.length;
-  const videoChanged = lastCompletedVideo?.tabId === tabId;
-  if (!recentChanged && !videoChanged) return;
+  if (!recentChanged) return;
 
   recentTabIds = nextRecentTabIds;
-  if (videoChanged) lastCompletedVideo = null;
-  await saveSessionState();
-  notifyTabsChanged();
-}
-
-async function clearVideoIndicatorOnNavigation(tabId) {
-  await loadSessionState();
-  if (lastCompletedVideo?.tabId !== tabId) return;
-  lastCompletedVideo = null;
   await saveSessionState();
   notifyTabsChanged();
 }
@@ -609,11 +566,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
-  if (message?.type === "VIDEO_ENDED") {
-    rememberVideoCompletion(_sender.tab?.id, _sender.tab?.windowId);
-    return false;
-  }
-
   if (message?.type === "CLOSE_SWITCHER") {
     closeSwitcherWindow();
     return false;
@@ -629,18 +581,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 chrome.tabs.onCreated.addListener(notifyTabsChanged);
 chrome.tabs.onRemoved.addListener((tabId) => {
-  removeTabIndicators(tabId);
+  removeTabFromRecent(tabId);
   notifyTabsChanged();
 });
 chrome.tabs.onMoved.addListener(notifyTabsChanged);
 chrome.tabs.onAttached.addListener(notifyTabsChanged);
 chrome.tabs.onDetached.addListener(notifyTabsChanged);
 chrome.tabs.onReplaced.addListener((_addedTabId, removedTabId) => {
-  removeTabIndicators(removedTabId);
+  removeTabFromRecent(removedTabId);
   notifyTabsChanged();
 });
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.url) clearVideoIndicatorOnNavigation(tabId);
   if (["title", "url", "favIconUrl", "audible", "pinned"].some((key) =>
     key in changeInfo
   )) {

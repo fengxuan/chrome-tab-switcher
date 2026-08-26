@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Segoe UI", sans-serif;
   background: #ffffff;
   color: #202532;
   font-synthesis: none;
@@ -236,7 +236,9 @@ kbd {
   display: flex;
   gap: 5px;
   align-items: center;
+  justify-content: center;
   height: 19px;
+  min-width: 19px;
 }
 
 .tab-indicator,
@@ -249,13 +251,8 @@ kbd {
   box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgba(22, 163, 74, 0.16), 0 1px 5px rgba(32, 43, 64, 0.24);
 }
 
-.tab-indicator.is-recent,
+.tab-indicator.is-status,
 .legend-dot.is-recent {
-  background: #16a34a;
-}
-
-.tab-indicator.is-video,
-.legend-dot.is-video {
   background: #16a34a;
 }
 
@@ -292,18 +289,17 @@ kbd {
 .tab-title {
   width: 100%;
   display: -webkit-box;
-  flex: 0 0 54px;
+  flex: 0 0 60px;
   overflow: hidden;
   color: #303848;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
   text-align: center;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   -webkit-box-align: center;
   -webkit-box-orient: vertical;
   -webkit-box-pack: center;
-  -webkit-line-clamp: 3;
 }
 
 .tab-flags {
@@ -317,6 +313,10 @@ kbd {
 }
 
 .tab-playing-indicator {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  z-index: 1;
   display: grid;
   width: 19px;
   height: 19px;
@@ -388,7 +388,7 @@ kbd {
   gap: 8px 12px;
   margin-top: 4px;
   color: #818b9c;
-  font-size: 10px;
+  font-size: 11px;
   text-align: center;
 }
 
@@ -402,6 +402,16 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  appearance: none;
 }
 
 .status-legend .legend-dot {

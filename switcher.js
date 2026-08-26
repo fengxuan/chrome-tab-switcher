@@ -2,7 +2,8 @@ const appState = {
   windows: [],
   sourceTabId: null,
   selectedTabId: null,
-  query: ""
+  query: "",
+  recentOnly: false
 };
 
 const TAB_CARD_WIDTH = 152;
@@ -11,6 +12,9 @@ const MERGED_WINDOW_GAP = 32;
 const CARDS_HORIZONTAL_PADDING = 6;
 const SMALL_WINDOW_TAB_LIMIT = 5;
 const MERGED_ROW_TAB_LIMIT = 10;
+const TITLE_MAX_LINES = 3;
+const TITLE_BREAK_LOOKBACK = 16;
+const TITLE_BREAK_PATTERN = /[\s\p{P}\p{S}]/u;
 
 // The full pinyinjs phrase dictionary is large. Keep only a small set of
 // common ambiguous words that are likely to appear in browser tab titles.
@@ -101,7 +105,8 @@ const elements = {
   search: document.querySelector("#search"),
   content: document.querySelector("#content"),
   empty: document.querySelector("#empty"),
-  windowGroups: document.querySelector("#window-groups")
+  windowGroups: document.querySelector("#window-groups"),
+  recentFilter: document.querySelector("#recent-filter")
 };
 
 function send(message) {
@@ -109,6 +114,7 @@ function send(message) {
 }
 
 function matchesQuery(tab) {
+  if (appState.recentOnly && !tab.recentRank) return false;
   const query = normalizeSearchText(appState.query);
   if (!query) return true;
   return (tab.searchText || indexTab(tab).searchText).includes(query);
@@ -328,6 +334,81 @@ function createFallbackFavicon(tab) {
   return fallback;
 }
 
+function fitTitleText(titleElement, fullText) {
+  const width = titleElement.clientWidth;
+  if (!width || !fullText) {
+    titleElement.textContent = fullText;
+    return;
+  }
+
+  const computedStyle = getComputedStyle(titleElement);
+  const fontSize = Number.parseFloat(computedStyle.fontSize) || 14;
+  const lineHeight = Number.parseFloat(computedStyle.lineHeight) || fontSize * 1.4;
+  const maxHeight = lineHeight * TITLE_MAX_LINES;
+  const measure = titleElement.cloneNode(false);
+  measure.removeAttribute("data-full-text");
+  measure.style.position = "absolute";
+  measure.style.display = "block";
+  measure.style.flex = "none";
+  measure.style.width = `${width}px`;
+  measure.style.height = "auto";
+  measure.style.minHeight = "0";
+  measure.style.maxHeight = "none";
+  measure.style.overflow = "visible";
+  measure.style.textOverflow = "clip";
+  measure.style.visibility = "hidden";
+  measure.style.pointerEvents = "none";
+  measure.style.whiteSpace = "normal";
+  measure.style.setProperty("-webkit-line-clamp", "unset");
+  document.body.append(measure);
+
+  const fits = (text) => {
+    measure.textContent = text;
+    return measure.getBoundingClientRect().height <= maxHeight + 0.5
+      && measure.scrollWidth <= width + 0.5;
+  };
+
+  const characters = [...fullText];
+  if (fits(fullText)) {
+    titleElement.textContent = fullText;
+    measure.remove();
+    return;
+  }
+
+  let low = 0;
+  let high = characters.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (fits(characters.slice(0, middle).join(""))) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
+  }
+
+  let cutLength = low;
+  const breakStart = Math.max(0, cutLength - TITLE_BREAK_LOOKBACK);
+  for (let index = cutLength - 1; index >= breakStart; index -= 1) {
+    if (TITLE_BREAK_PATTERN.test(characters[index])) {
+      cutLength = index;
+      break;
+    }
+  }
+
+  let visibleText = characters.slice(0, cutLength).join("").trimEnd();
+  if (!visibleText && low > 0) {
+    visibleText = characters.slice(0, low).join("").trimEnd();
+  }
+  titleElement.textContent = visibleText;
+  measure.remove();
+}
+
+function fitTabTitles() {
+  document.querySelectorAll(".tab-title").forEach((titleElement) => {
+    fitTitleText(titleElement, titleElement.dataset.fullText || titleElement.textContent);
+  });
+}
+
 function createCard(tab) {
   const card = document.createElement("div");
   card.className = "tab-card";
@@ -337,8 +418,7 @@ function createCard(tab) {
   card.dataset.windowId = String(tab.windowId);
   const displayTitle = getDisplayTitle(tab.title);
   const statusLabels = [
-    tab.recentRank ? `最近切换第 ${tab.recentRank}` : "",
-    tab.videoCompleted ? "最近播放结束的视频页面" : ""
+    tab.recentRank ? `最近切换第 ${tab.recentRank}` : ""
   ].filter(Boolean);
   card.setAttribute(
     "aria-label",
@@ -349,17 +429,11 @@ function createCard(tab) {
   const indicators = document.createElement("span");
   indicators.className = "tab-indicators";
   indicators.setAttribute("aria-hidden", "true");
-  if (tab.recentRank) {
-    const recentIndicator = document.createElement("span");
-    recentIndicator.className = "tab-indicator is-recent";
-    recentIndicator.title = `最近切换第 ${tab.recentRank}`;
-    indicators.append(recentIndicator);
-  }
-  if (tab.videoCompleted) {
-    const videoIndicator = document.createElement("span");
-    videoIndicator.className = "tab-indicator is-video";
-    videoIndicator.title = "最近播放结束的视频页面";
-    indicators.append(videoIndicator);
+  if (statusLabels.length) {
+    const statusIndicator = document.createElement("span");
+    statusIndicator.className = "tab-indicator is-status";
+    statusIndicator.title = statusLabels.join("；");
+    indicators.append(statusIndicator);
   }
 
   const closeButton = document.createElement("button");
@@ -379,6 +453,7 @@ function createCard(tab) {
   const favicon = createFavicon(tab);
   const title = document.createElement("span");
   title.className = "tab-title";
+  title.dataset.fullText = displayTitle;
   title.textContent = displayTitle;
 
   const flags = document.createElement("span");
@@ -391,7 +466,6 @@ function createCard(tab) {
     playingIndicator.className = "tab-playing-indicator";
     playingIndicator.setAttribute("aria-hidden", "true");
     playingIndicator.title = "此标签页正在播放音频或视频";
-    indicators.append(playingIndicator);
   }
 
   card.append(
@@ -399,7 +473,8 @@ function createCard(tab) {
     closeButton,
     favicon,
     title,
-    ...(tab.pinned ? [flags] : [])
+    ...(tab.pinned ? [flags] : []),
+    ...(playingIndicator ? [playingIndicator] : [])
   );
   card.addEventListener("click", () => activate(tab));
   card.addEventListener("keydown", (event) => {
@@ -438,6 +513,7 @@ function render({ centerSelected = true, revealSelected = true } = {}) {
     if (row) elements.windowGroups.append(row);
   }
 
+  fitTabTitles();
   updateMergedRowAlignment();
   restoreCardScrollPositions(scrollPositions);
   focusSelectedCard({ center: centerSelected, reveal: revealSelected });
@@ -651,6 +727,25 @@ function showLoadError() {
   elements.empty.querySelector("h2").textContent = "读取标签页失败";
   elements.empty.querySelector("p").textContent = "请关闭面板后重新打开，或检查扩展权限。";
 }
+
+function toggleRecentFilter() {
+  appState.recentOnly = !appState.recentOnly;
+  elements.recentFilter.setAttribute("aria-pressed", String(appState.recentOnly));
+  elements.recentFilter.title = appState.recentOnly
+    ? "点击显示全部标签页"
+    : "点击只显示最近切换的标签页";
+
+  const visible = visibleTabs();
+  if (!visible.some((tab) => tab.id === appState.selectedTabId)) {
+    appState.selectedTabId = visible[0]?.id ?? null;
+  }
+  render();
+}
+
+elements.recentFilter.addEventListener("click", toggleRecentFilter);
+elements.recentFilter.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+});
 
 elements.search.addEventListener("input", () => {
   appState.query = elements.search.value;
