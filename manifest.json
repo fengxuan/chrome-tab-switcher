@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Chrome Tab Switcher",
+  "version": "0.1.0",
+  "description": "A large visual switcher for tabs across all Chrome windows.",
+  "permissions": ["tabs", "windows", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["video-tracker.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Open Chrome Tab Switcher"
+  },
+  "commands": {
+    "open-tab-switcher": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
+      },
+      "description": "Open the visual tab switcher"
+    }
+  }
+}
