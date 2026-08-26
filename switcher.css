@@ -236,27 +236,27 @@ kbd {
   display: flex;
   gap: 4px;
   align-items: center;
-  height: 8px;
+  height: 10px;
 }
 
 .tab-indicator,
 .legend-dot {
   display: inline-block;
   flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px #ffffff, 0 1px 4px rgba(32, 43, 64, 0.22);
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgba(22, 163, 74, 0.16), 0 1px 5px rgba(32, 43, 64, 0.24);
 }
 
 .tab-indicator.is-recent,
 .legend-dot.is-recent {
-  background: #35b878;
+  background: #16a34a;
 }
 
 .tab-indicator.is-video,
 .legend-dot.is-video {
-  background: #4389ef;
+  background: #16a34a;
 }
 
 .favicon-slot {
@@ -309,15 +309,23 @@ kbd {
 .tab-flags {
   position: absolute;
   top: 6px;
-  right: 29px;
+  right: 7px;
   color: #6479d9;
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
 }
 
-.tab-flags.is-playing {
-  color: #d45170;
+.tab-playing-indicator {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d45170;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgba(212, 81, 112, 0.18), 0 1px 5px rgba(32, 43, 64, 0.24);
 }
 
 .empty-state {
@@ -368,9 +376,9 @@ kbd {
 }
 
 .status-legend .legend-dot {
-  width: 7px;
-  height: 7px;
-  box-shadow: 0 0 0 1px #ffffff, 0 1px 3px rgba(32, 43, 64, 0.18);
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 0 1px #ffffff, 0 0 0 3px rgba(22, 163, 74, 0.14), 0 1px 3px rgba(32, 43, 64, 0.2);
 }
 
 [hidden] {

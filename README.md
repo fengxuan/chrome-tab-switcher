@@ -15,6 +15,23 @@
 - 使用快捷键 `Command + Shift + Space`（Windows/Linux 默认是 `Ctrl + Shift + Space`）；
 - 自定义打开切换器的快捷键：打开 `chrome://extensions/shortcuts`，找到“Chrome Tab Switcher”，点击对应快捷键输入框后录入新的组合键；
 
+## macOS 系统级快捷键
+
+如果希望在 Excel、VS Code 等其它应用中也能唤出切换器，可以运行父目录 `macos/ChromeTabSwitcherHotKey` 中的本地辅助程序。它监听系统级 `Command + Shift + Space`，激活最近使用的 Chrome 窗口，然后把同一个快捷键发送给扩展。Chrome 没有运行时，辅助程序会尝试启动 Chrome。启动后，辅助程序会显示在 macOS 菜单栏中。
+
+构建并运行：
+
+```sh
+cd ../macos/ChromeTabSwitcherHotKey
+chmod +x build-app.sh
+./build-app.sh
+open "dist/Chrome Tab Switcher.app"
+```
+
+首次运行后，请在“系统设置 → 隐私与安全性 → 辅助功能”中允许“Chrome Tab Switcher”。这是 macOS 对跨应用发送键盘事件的权限要求。也可以从菜单栏中的“打开辅助功能设置”，或“更换全局快捷键”窗口中的“打开辅助功能设置”按钮直接跳转到授权页面。点击菜单栏中的 `⌘⇧Space`，可以打开切换器、查看监听状态、更换快捷键或退出程序。更换快捷键后，需要同时在 `chrome://extensions/shortcuts` 中将扩展快捷键设置成相同组合。录入新快捷键时，辅助程序会暂时停止监听旧快捷键，保存或取消后自动恢复。之后可以把 `dist/Chrome Tab Switcher.app` 加到“系统设置 → 通用 → 登录项”，让它开机常驻。
+
+辅助程序使用的快捷键必须和扩展在 `chrome://extensions/shortcuts` 中的快捷键一致；默认都是 `Command + Shift + Space`。从其它应用触发时，“当前 Chrome 标签页”指 Chrome 最近一次使用的窗口及其中最近激活的标签页。
+
 ## 使用
 
 - `←` / `→`：在当前行内切换标签页（合并窗口时可跨窗口切换）
@@ -24,7 +41,7 @@
 - 鼠标悬停标签卡片时，点击右上角 `×`：关闭该标签页
 - `Esc`：关闭面板
 - `⌘ K` / `Ctrl K`：聚焦搜索框
-- 绿色小点：最近切换的 4 个标签页；蓝色小点：最近播放结束视频的标签页
+- 绿色小点：最近切换的 4 个标签页，或最近播放结束视频的标签页；红色小点：正在播放音频或视频的标签页
 - 搜索框支持标题、网址和窗口名称，也支持中文标题的完整拼音和首字母查询；拼音使用本地打包的精简 pinyinjs 字典，并针对常见多音词做了小型补丁
 - 点击其它 Chrome 窗口或其它应用后，面板会自动关闭；再次按快捷键会直接重新打开
 

@@ -278,6 +278,30 @@ function shortInitial(title = "?") {
   return [...title.trim()][0]?.toUpperCase() || "?";
 }
 
+function getDisplayTitle(title = "") {
+  let displayTitle = title.trim();
+
+  // Remove notification counts such as “(99+ 封私信 / 80 条消息)”.
+  displayTitle = displayTitle.replace(
+    /^\s*(?:(?:[（(【][^（）()【】]*[）)】])|(?:\[[^\[\]]*\]))\s*/u,
+    ""
+  );
+
+  // Remove the common site suffix, such as “ - 知乎” or “ | YouTube”.
+  displayTitle = displayTitle.replace(
+    /\s+(?:[-–—|｜])\s*[^-–—|｜]+$/u,
+    ""
+  );
+
+  // Keep the meaningful middle text and make it easier to scan at a glance.
+  displayTitle = displayTitle
+    .replace(/[\p{P}\p{S}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return displayTitle || "未命名标签页";
+}
+
 function createFavicon(tab) {
   const slot = document.createElement("span");
   slot.className = "favicon-slot";
@@ -311,15 +335,16 @@ function createCard(tab) {
   card.tabIndex = 0;
   card.dataset.tabId = String(tab.id);
   card.dataset.windowId = String(tab.windowId);
+  const displayTitle = getDisplayTitle(tab.title);
   const statusLabels = [
     tab.recentRank ? `最近切换第 ${tab.recentRank}` : "",
     tab.videoCompleted ? "最近播放结束的视频页面" : ""
   ].filter(Boolean);
   card.setAttribute(
     "aria-label",
-    `${tab.title}，${tab.host || "未知网站"}${tab.pinned ? "，已固定" : ""}${tab.audible ? "，正在播放媒体" : ""}${statusLabels.length ? `，${statusLabels.join("，")}` : ""}`
+    `${displayTitle}，${tab.host || "未知网站"}${tab.pinned ? "，已固定" : ""}${tab.audible ? "，正在播放媒体" : ""}${statusLabels.length ? `，${statusLabels.join("，")}` : ""}`
   );
-  card.title = `${tab.title}\n${tab.url}`;
+  card.title = displayTitle;
 
   const indicators = document.createElement("span");
   indicators.className = "tab-indicators";
@@ -340,7 +365,7 @@ function createCard(tab) {
   const closeButton = document.createElement("button");
   closeButton.type = "button";
   closeButton.className = "close-tab";
-  closeButton.setAttribute("aria-label", `关闭标签页：${tab.title}`);
+  closeButton.setAttribute("aria-label", `关闭标签页：${displayTitle}`);
   closeButton.title = "关闭标签页";
   closeButton.textContent = "×";
   closeButton.addEventListener("click", (event) => {
@@ -354,17 +379,28 @@ function createCard(tab) {
   const favicon = createFavicon(tab);
   const title = document.createElement("span");
   title.className = "tab-title";
-  title.textContent = tab.title;
+  title.textContent = displayTitle;
 
   const flags = document.createElement("span");
   flags.className = "tab-flags";
-  if (tab.audible) flags.classList.add("is-playing");
-  flags.textContent = [tab.pinned ? "📌" : "", tab.audible ? "🔊" : ""]
-    .filter(Boolean)
-    .join(" ");
-  if (tab.audible) flags.title = "此标签页正在播放音频或视频";
+  if (tab.pinned) flags.textContent = "📌";
 
-  card.append(indicators, closeButton, favicon, title, flags);
+  let playingIndicator = null;
+  if (tab.audible) {
+    playingIndicator = document.createElement("span");
+    playingIndicator.className = "tab-playing-indicator";
+    playingIndicator.setAttribute("aria-hidden", "true");
+    playingIndicator.title = "此标签页正在播放音频或视频";
+  }
+
+  card.append(
+    indicators,
+    closeButton,
+    favicon,
+    title,
+    ...(tab.pinned ? [flags] : []),
+    ...(playingIndicator ? [playingIndicator] : [])
+  );
   card.addEventListener("click", () => activate(tab));
   card.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
