@@ -109,6 +109,76 @@ const elements = {
   recentFilter: document.querySelector("#recent-filter")
 };
 
+function localizedMessage(name, substitutions = [], fallback = name) {
+  const message = chrome.i18n?.getMessage?.(name, substitutions);
+  return message || fallback;
+}
+
+function updateRecentFilterAccessibility() {
+  elements.recentFilter.setAttribute(
+    "aria-label",
+    localizedMessage(
+      "recentFilterAriaLabel",
+      [],
+      "只显示最近切换的标签页"
+    )
+  );
+  elements.recentFilter.title = localizedMessage(
+    appState.recentOnly
+      ? "recentFilterShowAllTitle"
+      : "recentFilterShowRecentTitle",
+    [],
+    appState.recentOnly
+      ? "点击显示全部标签页"
+      : "点击只显示最近切换的标签页"
+  );
+}
+
+function applyTranslations() {
+  document.documentElement.lang = localizedMessage(
+    "languageCode",
+    [],
+    "zh-CN"
+  );
+  document.title = localizedMessage("switcherTitle", [], "Chrome 标签切换器");
+  elements.search.placeholder = localizedMessage(
+    "searchPlaceholder",
+    [],
+    "搜索标题、网址或拼音…"
+  );
+  elements.empty.querySelector("h2").textContent = localizedMessage(
+    "emptyNoMatch",
+    [],
+    "没有匹配的标签页"
+  );
+  elements.empty.querySelector("p").textContent = localizedMessage(
+    "emptyNoMatchHint",
+    [],
+    "换一个关键词试试，或清空搜索框查看全部标签。"
+  );
+  document.querySelector("#recent-filter-label").textContent = localizedMessage(
+    "recentFilterLabel",
+    [],
+    "最近切换"
+  );
+  document.querySelector("#hint-control").textContent = localizedMessage(
+    "hintControlSelection",
+    [],
+    "控制选择"
+  );
+  document.querySelector("#hint-open").textContent = localizedMessage(
+    "hintOpen",
+    [],
+    "打开"
+  );
+  document.querySelector("#hint-close").textContent = localizedMessage(
+    "hintClose",
+    [],
+    "关闭"
+  );
+  updateRecentFilterAccessibility();
+}
+
 function send(message) {
   return chrome.runtime.sendMessage(message);
 }
@@ -305,7 +375,7 @@ function getDisplayTitle(title = "") {
     .replace(/\s+/g, " ")
     .trim();
 
-  return displayTitle || "未命名标签页";
+  return displayTitle || localizedMessage("untitledTab", [], "未命名标签页");
 }
 
 function createFavicon(tab) {
@@ -418,11 +488,40 @@ function createCard(tab) {
   card.dataset.windowId = String(tab.windowId);
   const displayTitle = getDisplayTitle(tab.title);
   const statusLabels = [
-    tab.recentRank ? `最近切换第 ${tab.recentRank}` : ""
+    tab.recentRank
+      ? localizedMessage(
+        "recentRank",
+        [String(tab.recentRank)],
+        `最近切换第 ${tab.recentRank}`
+      )
+      : ""
   ].filter(Boolean);
+  const details = [
+    tab.pinned
+      ? localizedMessage("pinnedSuffix", [], "，已固定")
+      : "",
+    tab.audible
+      ? localizedMessage("audibleSuffix", [], "，正在播放媒体")
+      : "",
+    tab.recentRank
+      ? localizedMessage(
+        "recentSuffix",
+        [String(tab.recentRank)],
+        `，最近切换第 ${tab.recentRank} 个`
+      )
+      : ""
+  ].join("");
   card.setAttribute(
     "aria-label",
-    `${displayTitle}，${tab.host || "未知网站"}${tab.pinned ? "，已固定" : ""}${tab.audible ? "，正在播放媒体" : ""}${statusLabels.length ? `，${statusLabels.join("，")}` : ""}`
+    localizedMessage(
+      "tabAriaLabel",
+      [
+        displayTitle,
+        tab.host || localizedMessage("unknownWebsite", [], "未知网站"),
+        details
+      ],
+      `${displayTitle}，${tab.host || "未知网站"}${details}`
+    )
   );
   card.title = displayTitle;
 
@@ -439,8 +538,15 @@ function createCard(tab) {
   const closeButton = document.createElement("button");
   closeButton.type = "button";
   closeButton.className = "close-tab";
-  closeButton.setAttribute("aria-label", `关闭标签页：${displayTitle}`);
-  closeButton.title = "关闭标签页";
+  closeButton.setAttribute(
+    "aria-label",
+    localizedMessage(
+      "closeTabLabel",
+      [displayTitle],
+      `关闭标签页：${displayTitle}`
+    )
+  );
+  closeButton.title = localizedMessage("closeTabTitle", [], "关闭标签页");
   closeButton.textContent = "×";
   closeButton.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -465,7 +571,11 @@ function createCard(tab) {
     playingIndicator = document.createElement("span");
     playingIndicator.className = "tab-playing-indicator";
     playingIndicator.setAttribute("aria-hidden", "true");
-    playingIndicator.title = "此标签页正在播放音频或视频";
+    playingIndicator.title = localizedMessage(
+      "playingTabTitle",
+      [],
+      "此标签页正在播放音频或视频"
+    );
   }
 
   card.append(
@@ -659,8 +769,16 @@ function updateState(data) {
   if (!data?.ok) {
     elements.content.hidden = true;
     elements.empty.hidden = false;
-    elements.empty.querySelector("h2").textContent = "读取标签页失败";
-    elements.empty.querySelector("p").textContent = "请关闭面板后重新打开，或检查扩展权限。";
+    elements.empty.querySelector("h2").textContent = localizedMessage(
+      "loadErrorTitle",
+      [],
+      "读取标签页失败"
+    );
+    elements.empty.querySelector("p").textContent = localizedMessage(
+      "loadErrorHint",
+      [],
+      "请关闭面板后重新打开，或检查扩展权限。"
+    );
     return;
   }
 
@@ -724,16 +842,22 @@ function activateSelected() {
 function showLoadError() {
   elements.content.hidden = true;
   elements.empty.hidden = false;
-  elements.empty.querySelector("h2").textContent = "读取标签页失败";
-  elements.empty.querySelector("p").textContent = "请关闭面板后重新打开，或检查扩展权限。";
+  elements.empty.querySelector("h2").textContent = localizedMessage(
+    "loadErrorTitle",
+    [],
+    "读取标签页失败"
+  );
+  elements.empty.querySelector("p").textContent = localizedMessage(
+    "loadErrorHint",
+    [],
+    "请关闭面板后重新打开，或检查扩展权限。"
+  );
 }
 
 function toggleRecentFilter() {
   appState.recentOnly = !appState.recentOnly;
   elements.recentFilter.setAttribute("aria-pressed", String(appState.recentOnly));
-  elements.recentFilter.title = appState.recentOnly
-    ? "点击显示全部标签页"
-    : "点击只显示最近切换的标签页";
+  updateRecentFilterAccessibility();
 
   const visible = visibleTabs();
   if (!visible.some((tab) => tab.id === appState.selectedTabId)) {
@@ -894,5 +1018,6 @@ function moveBetweenRows(delta) {
   render({ centerSelected: false });
 }
 
+applyTranslations();
 updateSearchShortcut();
 refresh().catch(showLoadError);

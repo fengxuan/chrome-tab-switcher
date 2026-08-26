@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Chrome Tab Switcher",
+  "default_locale": "zh_CN",
+  "name": "__MSG_extensionName__",
   "version": "0.1.0",
-  "description": "A large visual switcher for tabs across all Chrome windows.",
+  "description": "__MSG_extensionDescription__",
   "permissions": ["tabs", "windows", "storage"],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Open Chrome Tab Switcher"
+    "default_title": "__MSG_actionTitle__"
   },
   "commands": {
     "open-tab-switcher": {
@@ -16,7 +17,7 @@
         "default": "Ctrl+Shift+Space",
         "mac": "Command+Shift+Space"
       },
-      "description": "Open the visual tab switcher"
+      "description": "__MSG_commandDescription__"
     }
   }
 }

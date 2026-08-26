@@ -1,0 +1,120 @@
+{
+  "extensionName": {
+    "message": "Chrome 标签切换器"
+  },
+  "extensionDescription": {
+    "message": "在所有 Chrome 窗口中集中查看并切换标签页。"
+  },
+  "actionTitle": {
+    "message": "打开 Chrome 标签切换器"
+  },
+  "commandDescription": {
+    "message": "打开可视化标签切换器"
+  },
+  "languageCode": {
+    "message": "zh-CN"
+  },
+  "switcherTitle": {
+    "message": "Chrome 标签切换器"
+  },
+  "searchPlaceholder": {
+    "message": "搜索标题、网址或拼音…"
+  },
+  "emptyNoMatch": {
+    "message": "没有匹配的标签页"
+  },
+  "emptyNoMatchHint": {
+    "message": "换一个关键词试试，或清空搜索框查看全部标签。"
+  },
+  "recentFilterLabel": {
+    "message": "最近切换"
+  },
+  "recentFilterAriaLabel": {
+    "message": "只显示最近切换的标签页"
+  },
+  "recentFilterShowAllTitle": {
+    "message": "点击显示全部标签页"
+  },
+  "recentFilterShowRecentTitle": {
+    "message": "点击只显示最近切换的标签页"
+  },
+  "hintControlSelection": {
+    "message": "控制选择"
+  },
+  "hintOpen": {
+    "message": "打开"
+  },
+  "hintClose": {
+    "message": "关闭"
+  },
+  "untitledTab": {
+    "message": "未命名标签页"
+  },
+  "windowLabel": {
+    "message": "窗口 $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "unknownWebsite": {
+    "message": "未知网站"
+  },
+  "recentRank": {
+    "message": "最近切换第 $NUMBER$ 个",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "pinnedSuffix": {
+    "message": "，已固定"
+  },
+  "audibleSuffix": {
+    "message": "，正在播放媒体"
+  },
+  "recentSuffix": {
+    "message": "，最近切换第 $NUMBER$ 个",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "tabAriaLabel": {
+    "message": "$TITLE$，$HOST$$DETAILS$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      },
+      "host": {
+        "content": "$2"
+      },
+      "details": {
+        "content": "$3"
+      }
+    }
+  },
+  "closeTabLabel": {
+    "message": "关闭标签页：$TITLE$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      }
+    }
+  },
+  "closeTabTitle": {
+    "message": "关闭标签页"
+  },
+  "playingTabTitle": {
+    "message": "此标签页正在播放音频或视频"
+  },
+  "loadErrorTitle": {
+    "message": "读取标签页失败"
+  },
+  "loadErrorHint": {
+    "message": "请关闭面板后重新打开，或检查扩展权限。"
+  }
+}

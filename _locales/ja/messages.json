@@ -1,0 +1,120 @@
+{
+  "extensionName": {
+    "message": "Chrome タブ切り替え"
+  },
+  "extensionDescription": {
+    "message": "すべての Chrome ウィンドウのタブをまとめて表示・切り替えます。"
+  },
+  "actionTitle": {
+    "message": "Chrome タブ切り替えを開く"
+  },
+  "commandDescription": {
+    "message": "ビジュアルタブ切り替えを開く"
+  },
+  "languageCode": {
+    "message": "ja"
+  },
+  "switcherTitle": {
+    "message": "Chrome タブ切り替え"
+  },
+  "searchPlaceholder": {
+    "message": "タイトル、URL、ピンインを検索…"
+  },
+  "emptyNoMatch": {
+    "message": "一致するタブがありません"
+  },
+  "emptyNoMatchHint": {
+    "message": "別のキーワードを試すか、検索を消去してすべてのタブを表示してください。"
+  },
+  "recentFilterLabel": {
+    "message": "最近切り替えたタブ"
+  },
+  "recentFilterAriaLabel": {
+    "message": "最近切り替えたタブのみ表示"
+  },
+  "recentFilterShowAllTitle": {
+    "message": "クリックしてすべてのタブを表示"
+  },
+  "recentFilterShowRecentTitle": {
+    "message": "クリックして最近切り替えたタブのみ表示"
+  },
+  "hintControlSelection": {
+    "message": "選択を移動"
+  },
+  "hintOpen": {
+    "message": "開く"
+  },
+  "hintClose": {
+    "message": "閉じる"
+  },
+  "untitledTab": {
+    "message": "名前のないタブ"
+  },
+  "windowLabel": {
+    "message": "ウィンドウ $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "unknownWebsite": {
+    "message": "不明なウェブサイト"
+  },
+  "recentRank": {
+    "message": "最近切り替えたタブ（$NUMBER$番目）",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "pinnedSuffix": {
+    "message": "、固定済み"
+  },
+  "audibleSuffix": {
+    "message": "、メディア再生中"
+  },
+  "recentSuffix": {
+    "message": "、最近切り替えたタブ（$NUMBER$番目）",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "tabAriaLabel": {
+    "message": "$TITLE$、$HOST$$DETAILS$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      },
+      "host": {
+        "content": "$2"
+      },
+      "details": {
+        "content": "$3"
+      }
+    }
+  },
+  "closeTabLabel": {
+    "message": "タブを閉じる: $TITLE$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      }
+    }
+  },
+  "closeTabTitle": {
+    "message": "タブを閉じる"
+  },
+  "playingTabTitle": {
+    "message": "このタブでは音声または動画を再生中です"
+  },
+  "loadErrorTitle": {
+    "message": "タブの読み込みに失敗しました"
+  },
+  "loadErrorHint": {
+    "message": "パネルを閉じて再度開くか、拡張機能の権限を確認してください。"
+  }
+}

@@ -42,6 +42,11 @@ let tabsChangedTimer = null;
 let resizeRequest = null;
 let resizeInFlight = false;
 
+function localizedMessage(name, substitutions = [], fallback = "") {
+  const message = chrome.i18n?.getMessage?.(name, substitutions);
+  return message || fallback;
+}
+
 async function loadSessionState() {
   if (sessionStateLoaded) return;
   if (!sessionStateLoadPromise) {
@@ -186,7 +191,7 @@ function normalizeTab(tab, windowLabel, windowId) {
     id: tab.id,
     windowId,
     index: tab.index,
-    title: tab.title || url || "未命名标签页",
+    title: tab.title || url || localizedMessage("untitledTab", [], "未命名标签页"),
     url,
     host: tabHost(url),
     favIconUrl: tab.favIconUrl || "",
@@ -292,7 +297,11 @@ function normalizeWindows(allWindows) {
   });
 
   return windows.map((window, index) => {
-    const windowLabel = `窗口 ${index + 1}`;
+    const windowLabel = localizedMessage(
+      "windowLabel",
+      [String(index + 1)],
+      `窗口 ${index + 1}`
+    );
     return {
       ...window,
       windowLabel,

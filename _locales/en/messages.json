@@ -1,0 +1,120 @@
+{
+  "extensionName": {
+    "message": "Chrome Tab Switcher"
+  },
+  "extensionDescription": {
+    "message": "A visual switcher for tabs across all Chrome windows."
+  },
+  "actionTitle": {
+    "message": "Open Chrome Tab Switcher"
+  },
+  "commandDescription": {
+    "message": "Open the visual tab switcher"
+  },
+  "languageCode": {
+    "message": "en"
+  },
+  "switcherTitle": {
+    "message": "Chrome Tab Switcher"
+  },
+  "searchPlaceholder": {
+    "message": "Search titles, URLs, or pinyin…"
+  },
+  "emptyNoMatch": {
+    "message": "No matching tabs"
+  },
+  "emptyNoMatchHint": {
+    "message": "Try another keyword, or clear the search to show all tabs."
+  },
+  "recentFilterLabel": {
+    "message": "Recently switched"
+  },
+  "recentFilterAriaLabel": {
+    "message": "Show only recently switched tabs"
+  },
+  "recentFilterShowAllTitle": {
+    "message": "Click to show all tabs"
+  },
+  "recentFilterShowRecentTitle": {
+    "message": "Click to show only recently switched tabs"
+  },
+  "hintControlSelection": {
+    "message": "Navigate"
+  },
+  "hintOpen": {
+    "message": "Open"
+  },
+  "hintClose": {
+    "message": "Close"
+  },
+  "untitledTab": {
+    "message": "Untitled tab"
+  },
+  "windowLabel": {
+    "message": "Window $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "unknownWebsite": {
+    "message": "Unknown website"
+  },
+  "recentRank": {
+    "message": "Recently switched, rank $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "pinnedSuffix": {
+    "message": ", pinned"
+  },
+  "audibleSuffix": {
+    "message": ", media playing"
+  },
+  "recentSuffix": {
+    "message": ", recently switched, rank $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "tabAriaLabel": {
+    "message": "$TITLE$, $HOST$$DETAILS$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      },
+      "host": {
+        "content": "$2"
+      },
+      "details": {
+        "content": "$3"
+      }
+    }
+  },
+  "closeTabLabel": {
+    "message": "Close tab: $TITLE$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      }
+    }
+  },
+  "closeTabTitle": {
+    "message": "Close tab"
+  },
+  "playingTabTitle": {
+    "message": "This tab is playing audio or video"
+  },
+  "loadErrorTitle": {
+    "message": "Failed to read tabs"
+  },
+  "loadErrorHint": {
+    "message": "Close and reopen the panel, or check the extension permissions."
+  }
+}

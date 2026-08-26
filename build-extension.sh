@@ -47,9 +47,15 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-mkdir -p "$STAGING_DIR/vendor" "$OUTPUT_DIR"
+if [[ ! -d "_locales" ]]; then
+  echo "错误：缺少扩展国际化资源目录：_locales" >&2
+  exit 1
+fi
+
+mkdir -p "$STAGING_DIR/vendor" "$STAGING_DIR/_locales" "$OUTPUT_DIR"
 cp "${required_files[@]}" "$STAGING_DIR/"
 cp -R vendor/. "$STAGING_DIR/vendor/"
+cp -R _locales/. "$STAGING_DIR/_locales/"
 
 rm -f "$PACKAGE_PATH"
 (cd "$STAGING_DIR" && zip -q -r "$PACKAGE_PATH" . -x '*.DS_Store')

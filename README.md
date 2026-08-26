@@ -15,6 +15,10 @@
 - 使用快捷键 `Command + Shift + Space`（Windows/Linux 默认是 `Ctrl + Shift + Space`）；
 - 自定义打开切换器的快捷键：打开 `chrome://extensions/shortcuts`，找到“Chrome Tab Switcher”，点击对应快捷键输入框后录入新的组合键；
 
+## 国际化
+
+扩展会根据 Chrome 浏览器语言自动显示中文、English 或日本語界面；其它语言默认使用中文。修改 Chrome 的语言后，重新打开切换器即可看到对应语言。
+
 ## macOS 系统级快捷键
 
 如果希望在 Excel、VS Code 等其它应用中也能唤出切换器，可以运行父目录 `macos/ChromeTabSwitcherHotKey` 中的本地辅助程序。它监听系统级 `Command + Shift + Space`，激活最近使用的 Chrome 窗口，然后把同一个快捷键发送给扩展。Chrome 没有运行时，辅助程序会尝试启动 Chrome。启动后，辅助程序会显示在 macOS 菜单栏中。
@@ -52,6 +56,7 @@ chmod +x build-extension.sh
 - 鼠标悬停标签卡片时，点击右上角 `×`：关闭该标签页
 - `Esc`：关闭面板
 - `⌘ K` / `Ctrl K`：聚焦搜索框
+- 面板会跟随 macOS、Windows 或 Linux 的系统外观自动切换浅色/深色模式
 - 展示顺序优先显示正在播放和最近切换的标签页；绿色小点：最近切换的 4 个标签页；右上角动画播放按钮：正在播放音频或视频的标签页
 - 搜索框支持标题、网址和窗口名称，也支持中文标题的完整拼音和首字母查询；拼音使用本地打包的精简 pinyinjs 字典，并针对常见多音词做了小型补丁
 - 点击其它 Chrome 窗口或其它应用后，面板会自动关闭；再次按快捷键会直接重新打开
