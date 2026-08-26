@@ -391,6 +391,7 @@ function createCard(tab) {
     playingIndicator.className = "tab-playing-indicator";
     playingIndicator.setAttribute("aria-hidden", "true");
     playingIndicator.title = "此标签页正在播放音频或视频";
+    indicators.append(playingIndicator);
   }
 
   card.append(
@@ -398,8 +399,7 @@ function createCard(tab) {
     closeButton,
     favicon,
     title,
-    ...(tab.pinned ? [flags] : []),
-    ...(playingIndicator ? [playingIndicator] : [])
+    ...(tab.pinned ? [flags] : [])
   );
   card.addEventListener("click", () => activate(tab));
   card.addEventListener("keydown", (event) => {

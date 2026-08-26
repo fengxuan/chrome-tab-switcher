@@ -234,9 +234,9 @@ kbd {
   top: 7px;
   left: 7px;
   display: flex;
-  gap: 4px;
+  gap: 5px;
   align-items: center;
-  height: 10px;
+  height: 19px;
 }
 
 .tab-indicator,
@@ -317,15 +317,44 @@ kbd {
 }
 
 .tab-playing-indicator {
-  position: absolute;
-  right: 7px;
-  bottom: 7px;
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #d45170;
-  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px rgba(212, 81, 112, 0.18), 0 1px 5px rgba(32, 43, 64, 0.24);
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 1px solid #cdd6ff;
+  border-radius: 6px;
+  background: #eef2ff;
+  box-shadow: 0 0 0 2px #ffffff, 0 1px 5px rgba(32, 43, 64, 0.24);
+  animation: playing-pulse 1.4s ease-in-out infinite;
+}
+
+.tab-playing-indicator::before {
+  content: "";
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid #5068d0;
+}
+
+@keyframes playing-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 2px #ffffff, 0 1px 5px rgba(32, 43, 64, 0.24);
+  }
+
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 5px rgba(80, 104, 208, 0.18), 0 2px 7px rgba(32, 43, 64, 0.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-playing-indicator {
+    animation: none;
+  }
 }
 
 .empty-state {

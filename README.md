@@ -32,6 +32,17 @@ open "dist/Chrome Tab Switcher.app"
 
 辅助程序使用的快捷键必须和扩展在 `chrome://extensions/shortcuts` 中的快捷键一致；默认都是 `Command + Shift + Space`。从其它应用触发时，“当前 Chrome 标签页”指 Chrome 最近一次使用的窗口及其中最近激活的标签页。
 
+## 打包发布
+
+在当前目录执行：
+
+```sh
+chmod +x build-extension.sh
+./build-extension.sh
+```
+
+脚本会先检查扩展代码和 `manifest.json`，然后生成 `dist/chrome-tab-switcher.zip`。压缩包根目录直接包含 `manifest.json`，可直接上传到 Chrome Web Store；`dist/` 目录中的构建产物不会提交到 Git。
+
 ## 使用
 
 - `←` / `→`：在当前行内切换标签页（合并窗口时可跨窗口切换）
@@ -41,7 +52,7 @@ open "dist/Chrome Tab Switcher.app"
 - 鼠标悬停标签卡片时，点击右上角 `×`：关闭该标签页
 - `Esc`：关闭面板
 - `⌘ K` / `Ctrl K`：聚焦搜索框
-- 绿色小点：最近切换的 4 个标签页，或最近播放结束视频的标签页；红色小点：正在播放音频或视频的标签页
+- 绿色小点：最近切换的 4 个标签页，或最近播放结束视频的标签页；左上角动画播放按钮：正在播放音频或视频的标签页
 - 搜索框支持标题、网址和窗口名称，也支持中文标题的完整拼音和首字母查询；拼音使用本地打包的精简 pinyinjs 字典，并针对常见多音词做了小型补丁
 - 点击其它 Chrome 窗口或其它应用后，面板会自动关闭；再次按快捷键会直接重新打开
 
