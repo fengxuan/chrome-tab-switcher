@@ -179,6 +179,15 @@ button {
   max-width: none;
 }
 
+.native-status {
+  max-width: 680px;
+  margin: 7px auto 0;
+  color: var(--muted-text);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
 .search-icon {
   color: var(--secondary-text);
   font-size: 23px;

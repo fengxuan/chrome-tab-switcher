@@ -8,6 +8,9 @@
   "actionTitle": {
     "message": "Open Chrome Tab Switcher"
   },
+  "chromeAppName": {
+    "message": "Chrome"
+  },
   "commandDescription": {
     "message": "Open the visual tab switcher"
   },
@@ -21,10 +24,10 @@
     "message": "Chrome Tab Switcher"
   },
   "searchPlaceholder": {
-    "message": "Search titles, URLs, or pinyin…"
+    "message": "Search tabs, windows, apps, or pinyin…"
   },
   "emptyNoMatch": {
-    "message": "No matching tabs"
+    "message": "No matching tabs or windows"
   },
   "emptyNoMatchHint": {
     "message": "Try another keyword, or clear the search to show all tabs."
@@ -79,6 +82,23 @@
   },
   "untitledTab": {
     "message": "Untitled tab"
+  },
+  "untitledMacWindow": {
+    "message": "Untitled window"
+  },
+  "macWindowDuplicateSuffix": {
+    "message": "(Window $NUMBER$)",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "macAccessibilityHint": {
+    "message": "Allow Chrome Tab Switcher in System Settings → Privacy & Security → Accessibility."
+  },
+  "macHelperUnavailableHint": {
+    "message": "The macOS helper is not installed; showing Chrome tabs only."
   },
   "windowLabel": {
     "message": "Window $NUMBER$",

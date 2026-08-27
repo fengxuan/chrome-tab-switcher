@@ -1,6 +1,7 @@
 const appState = {
   windows: [],
   bookmarkGroups: [],
+  macWindowState: null,
   sourceTabId: null,
   selectedTabId: null,
   query: "",
@@ -15,6 +16,7 @@ const MERGED_WINDOW_GAP = 32;
 const CARDS_HORIZONTAL_PADDING = 6;
 const SMALL_WINDOW_TAB_LIMIT = 5;
 const MERGED_ROW_TAB_LIMIT = 10;
+const MAC_WINDOW_POLL_INTERVAL_MS = 2200;
 const TITLE_MAX_LINES = 3;
 const TITLE_BREAK_LOOKBACK = 16;
 const TITLE_BREAK_PATTERN = /[\s\p{P}\p{S}]/u;
@@ -94,6 +96,7 @@ function indexTab(tab) {
     tab.url,
     tab.host,
     tab.windowLabel,
+    tab.appName,
     toPinyin(tab.title),
     toPinyin(tab.title, true)
   ];
@@ -109,6 +112,7 @@ const elements = {
   content: document.querySelector("#content"),
   empty: document.querySelector("#empty"),
   windowGroups: document.querySelector("#window-groups"),
+  nativeStatus: document.querySelector("#native-status"),
   recentFilter: document.querySelector("#recent-filter"),
   favoritesFilter: document.querySelector("#favorites-filter")
 };
@@ -254,6 +258,21 @@ function visibleGroups() {
     : visibleWindowGroups();
 }
 
+function groupLabel(group) {
+  if (group.isBookmarkGroup) {
+    return group.window.windowLabel
+      || localizedMessage("favoritesFilterLabel", [], "收藏夹");
+  }
+  if (windowCategory(group) === "mac") return group.appName || "macOS";
+  return `${localizedMessage("chromeAppName", [], "Chrome")} · ${group.window.windowLabel}`;
+}
+
+function windowCategory(group) {
+  if (group.category === "mac" || group.kind === "mac") return "mac";
+  if (group.tabs.some((tab) => tab.isMacWindow)) return "mac";
+  return "chrome";
+}
+
 function visibleTabs() {
   return visibleGroups().flatMap((group) => group.tabs);
 }
@@ -318,7 +337,7 @@ function getMergedRowWidth(rowGroups) {
   return CARDS_HORIZONTAL_PADDING + cardsWidth + windowGaps;
 }
 
-function displayWindowRows(groups) {
+function displayCategoryRows(groups) {
   const cardCapacity = getVisualCardCapacity();
   const rows = [];
   const smallGroups = [];
@@ -392,15 +411,28 @@ function displayWindowRows(groups) {
   ];
 }
 
+function displayWindowRows(groups) {
+  const groupsByCategory = new Map([
+    ["chrome", []],
+    ["mac", []]
+  ]);
+  groups.forEach((group) => groupsByCategory.get(windowCategory(group)).push(group));
+
+  return [...groupsByCategory.values()].flatMap((categoryGroups) =>
+    displayCategoryRows(categoryGroups)
+  );
+}
+
 function createWindowSection(group) {
   const section = document.createElement("section");
   section.className = `window-section${group.isBookmarkGroup && group.label
     ? " is-bookmark-group"
     : ""}`;
   section.dataset.windowId = String(group.window.id);
+  const labelText = groupLabel(group);
   section.setAttribute(
     "aria-label",
-    group.window.windowLabel || localizedMessage("favoritesFilterLabel", [], "收藏夹")
+    labelText
   );
 
   if (group.isBookmarkGroup && group.label) {
@@ -445,15 +477,20 @@ function getDisplayTitle(title = "") {
   return displayTitle || localizedMessage("untitledTab", [], "未命名标签页");
 }
 
+function getMacWindowDisplayTitle(title = "") {
+  return title.trim() || localizedMessage("untitledMacWindow", [], "未命名窗口");
+}
+
 function createFavicon(tab) {
   const slot = document.createElement("span");
   slot.className = "favicon-slot";
 
-  if (tab.favIconUrl) {
+  const iconUrl = tab.iconDataUrl || tab.favIconUrl;
+  if (iconUrl) {
     const favicon = document.createElement("img");
     favicon.className = "favicon";
     favicon.alt = "";
-    favicon.src = tab.favIconUrl;
+    favicon.src = iconUrl;
     favicon.addEventListener("error", () => {
       slot.replaceChildren(createFallbackFavicon(tab));
     });
@@ -484,7 +521,7 @@ function createFavicon(tab) {
 function createFallbackFavicon(tab) {
   const fallback = document.createElement("span");
   fallback.className = "favicon-fallback";
-  fallback.textContent = shortInitial(tab.title);
+  fallback.textContent = shortInitial(tab.appName || tab.title);
   return fallback;
 }
 
@@ -565,12 +602,14 @@ function fitTabTitles() {
 
 function createCard(tab) {
   const card = document.createElement("div");
-  card.className = "tab-card";
+  card.className = `tab-card${tab.isMacWindow ? " is-mac-window" : ""}`;
   card.setAttribute("role", "button");
   card.tabIndex = 0;
   card.dataset.tabId = String(tab.id);
   card.dataset.windowId = String(tab.windowId);
-  const displayTitle = getDisplayTitle(tab.title);
+  const displayTitle = tab.isMacWindow
+    ? getMacWindowDisplayTitle(tab.title || tab.appName)
+    : getDisplayTitle(tab.title || tab.appName);
   const statusLabels = [
     tab.recentRank
       ? localizedMessage(
@@ -595,19 +634,27 @@ function createCard(tab) {
       )
       : ""
   ].join("");
-  card.setAttribute(
-    "aria-label",
-    localizedMessage(
-      "tabAriaLabel",
-      [
-        displayTitle,
-        tab.host || localizedMessage("unknownWebsite", [], "未知网站"),
-        details
-      ],
-      `${displayTitle}，${tab.host || "未知网站"}${details}`
-    )
-  );
-  card.title = displayTitle;
+  if (tab.isMacWindow) {
+    card.setAttribute(
+      "aria-label",
+      `${tab.appName || "macOS"}，${displayTitle}${details}`
+    );
+    card.title = `${tab.appName || "macOS"} — ${displayTitle}`;
+  } else {
+    card.setAttribute(
+      "aria-label",
+      localizedMessage(
+        "tabAriaLabel",
+        [
+          displayTitle,
+          tab.host || localizedMessage("unknownWebsite", [], "未知网站"),
+          details
+        ],
+        `${displayTitle}，${tab.host || "未知网站"}${details}`
+      )
+    );
+    card.title = displayTitle;
+  }
 
   const indicators = document.createElement("span");
   indicators.className = "tab-indicators";
@@ -620,7 +667,7 @@ function createCard(tab) {
   }
 
   let closeButton = null;
-  if (!tab.isBookmark) {
+  if (!tab.isBookmark && !tab.isMacWindow) {
     closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.className = "close-tab";
@@ -768,6 +815,31 @@ function updateMergedRowAlignment() {
   });
 }
 
+function updateNativeStatus(state) {
+  if (!elements.nativeStatus) return;
+  const isMac = /Mac|iPhone|iPad|iPod/u.test(
+    `${navigator.platform || ""} ${navigator.userAgent || ""}`
+  );
+  if (!isMac || !state || (state.available && state.accessibilityTrusted)) {
+    elements.nativeStatus.hidden = true;
+    elements.nativeStatus.textContent = "";
+    return;
+  }
+
+  elements.nativeStatus.hidden = false;
+  elements.nativeStatus.textContent = state.available
+    ? localizedMessage(
+      "macAccessibilityHint",
+      [],
+      "请在“系统设置 → 隐私与安全性 → 辅助功能”中允许 Chrome Tab Switcher。"
+    )
+    : localizedMessage(
+      "macHelperUnavailableHint",
+      [],
+      "未检测到 macOS 辅助程序，仅显示 Chrome 标签页。"
+    );
+}
+
 function scheduleResize() {
   if (scheduleResize.frame !== null) return;
   scheduleResize.frame = requestAnimationFrame(() => {
@@ -902,6 +974,8 @@ function updateState(data) {
     tabs: group.tabs.map(indexTab)
   }));
   appState.sourceTabId = data.sourceTabId;
+  appState.macWindowState = data.macWindowState || null;
+  updateNativeStatus(appState.macWindowState);
 
   const visible = visibleTabs();
   if (!visible.some((tab) => tab.id === appState.selectedTabId)) {
@@ -910,6 +984,27 @@ function updateState(data) {
       : visible[0]?.id ?? null;
   }
   render({ revealSelected: !isInitialState });
+}
+
+function updateMacWindows(windows = [], macWindowState = null) {
+  const normalizedWindows = windows.map((window) => ({
+    ...window,
+    tabs: (window.tabs || []).map(indexTab)
+  }));
+  appState.windows = [
+    ...appState.windows.filter((window) => windowCategory(window) !== "mac"),
+    ...normalizedWindows
+  ];
+  appState.macWindowState = macWindowState;
+  updateNativeStatus(macWindowState);
+
+  const visible = visibleTabs();
+  if (!visible.some((tab) => tab.id === appState.selectedTabId)) {
+    appState.selectedTabId = visible.some((tab) => tab.id === appState.sourceTabId)
+      ? appState.sourceTabId
+      : visible[0]?.id ?? null;
+  }
+  render({ revealSelected: false });
 }
 
 let refreshSequence = 0;
@@ -933,9 +1028,30 @@ function scheduleRefresh() {
   }, 50);
 }
 
+setInterval(() => {
+  if (appState.favoritesOnly) return;
+  if (!/Mac|iPhone|iPad|iPod/u.test(
+    `${navigator.platform || ""} ${navigator.userAgent || ""}`
+  )) {
+    return;
+  }
+  send({ type: "REFRESH_MAC_WINDOWS" }).catch(() => {});
+}, MAC_WINDOW_POLL_INTERVAL_MS);
+
 function activate(tab) {
   if (tab.isBookmark) {
     send({ type: "OPEN_BOOKMARK", url: tab.url }).catch(() => {});
+    return;
+  }
+  if (tab.isMacWindow) {
+    send({
+      type: "ACTIVATE_MAC_WINDOW",
+      pid: tab.pid,
+      windowNumber: tab.windowNumber,
+      title: tab.nativeTitle || tab.title,
+      bundleIdentifier: tab.bundleIdentifier,
+      bounds: tab.bounds
+    }).catch(() => {});
     return;
   }
   send({
@@ -1058,6 +1174,9 @@ document.addEventListener("keydown", (event) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "TABS_CHANGED") scheduleRefresh();
+  if (message?.type === "MAC_WINDOWS_UPDATED") {
+    updateMacWindows(message.windows, message.macWindowState);
+  }
   if (message?.type === "SET_VIEW") {
     setFavoritesFilter(Boolean(message.favoritesOnly));
   }

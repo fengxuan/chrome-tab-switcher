@@ -8,6 +8,9 @@
   "actionTitle": {
     "message": "Chrome タブ切り替えを開く"
   },
+  "chromeAppName": {
+    "message": "Chrome"
+  },
   "commandDescription": {
     "message": "ビジュアルタブ切り替えを開く"
   },
@@ -21,10 +24,10 @@
     "message": "Chrome タブ切り替え"
   },
   "searchPlaceholder": {
-    "message": "タイトル、URL、ピンインを検索…"
+    "message": "タブ、ウィンドウ、アプリ、ピンインを検索…"
   },
   "emptyNoMatch": {
-    "message": "一致するタブがありません"
+    "message": "一致するタブやウィンドウがありません"
   },
   "emptyNoMatchHint": {
     "message": "別のキーワードを試すか、検索を消去してすべてのタブを表示してください。"
@@ -79,6 +82,23 @@
   },
   "untitledTab": {
     "message": "名前のないタブ"
+  },
+  "untitledMacWindow": {
+    "message": "名前のないウィンドウ"
+  },
+  "macWindowDuplicateSuffix": {
+    "message": "（ウィンドウ $NUMBER$）",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "macAccessibilityHint": {
+    "message": "システム設定 → プライバシーとセキュリティ → アクセシビリティで Chrome タブ切り替えを許可してください。"
+  },
+  "macHelperUnavailableHint": {
+    "message": "macOS ヘルパーがインストールされていないため、Chrome のタブのみ表示しています。"
   },
   "windowLabel": {
     "message": "ウィンドウ $NUMBER$",

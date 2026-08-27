@@ -17,6 +17,10 @@ const SWITCHER_MIN_HEIGHT = 260;
 const SMALL_WINDOW_TAB_LIMIT = 5;
 const MERGED_ROW_TAB_LIMIT = 10;
 const RECENT_TAB_LIMIT = 4;
+const NATIVE_HOST_NAME = "com.local.chrometabswitcher";
+const NATIVE_REQUEST_TIMEOUT_MS = 2500;
+const MAC_WINDOW_CACHE_TTL_MS = 2000;
+const MAC_WINDOW_FAILURE_RETRY_MS = 5000;
 const VISIBLE_WINDOW_TYPES = new Set(["normal", "popup", "app", "panel"]);
 const SWITCHER_SESSION_STATE_KEYS = [
   "switcherWindowId",
@@ -43,10 +47,99 @@ let resizeRequest = null;
 let resizeInFlight = false;
 const bookmarkFaviconCache = new Map();
 const bookmarkFaviconRequests = new Map();
+let nativePort = null;
+let nativeRequestSequence = 0;
+const nativeRequests = new Map();
+let macWindowCache = null;
+let macWindowRefreshPromise = null;
 
 function localizedMessage(name, substitutions = [], fallback = "") {
   const message = chrome.i18n?.getMessage?.(name, substitutions);
   return message || fallback;
+}
+
+function isMacOS() {
+  return /Macintosh|Mac OS X/u.test(navigator.userAgent || "");
+}
+
+function rejectNativeRequests(error) {
+  nativeRequests.forEach(({ reject, timer }) => {
+    clearTimeout(timer);
+    reject(error);
+  });
+  nativeRequests.clear();
+}
+
+function resetNativePort(port, error = new Error("macOS native helper unavailable")) {
+  if (port && nativePort !== port) {
+    try {
+      port.disconnect();
+    } catch {
+      // The port may already be disconnected.
+    }
+    return;
+  }
+  nativePort = null;
+  rejectNativeRequests(error);
+  if (port) {
+    try {
+      port.disconnect();
+    } catch {
+      // The port may already be disconnected.
+    }
+  }
+}
+
+function getNativePort() {
+  if (nativePort) return nativePort;
+  if (typeof chrome.runtime.connectNative !== "function") return null;
+
+  try {
+    const port = chrome.runtime.connectNative(NATIVE_HOST_NAME);
+    port.onMessage.addListener((message) => {
+      const request = nativeRequests.get(message?.requestId);
+      if (!request) return;
+      nativeRequests.delete(message.requestId);
+      clearTimeout(request.timer);
+      if (message.ok) request.resolve(message);
+      else request.reject(new Error(message.error || "macOS native helper failed"));
+    });
+    port.onDisconnect.addListener(() => {
+      const errorMessage = chrome.runtime.lastError?.message
+        || "macOS native helper disconnected";
+      resetNativePort(port, new Error(errorMessage));
+    });
+    nativePort = port;
+    return port;
+  } catch {
+    return null;
+  }
+}
+
+function requestNative(action, payload = {}) {
+  const port = getNativePort();
+  if (!port) return Promise.reject(new Error("macOS native helper unavailable"));
+
+  return new Promise((resolve, reject) => {
+    const requestId = `${Date.now()}-${++nativeRequestSequence}`;
+    const timer = setTimeout(() => {
+      nativeRequests.delete(requestId);
+      reject(new Error("macOS native helper timed out"));
+      resetNativePort(port, new Error("macOS native helper timed out"));
+    }, NATIVE_REQUEST_TIMEOUT_MS);
+    nativeRequests.set(requestId, { resolve, reject, timer });
+
+    try {
+      port.postMessage({ action, requestId, ...payload });
+    } catch (error) {
+      clearTimeout(timer);
+      nativeRequests.delete(requestId);
+      resetNativePort(
+        port,
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  });
 }
 
 async function loadSessionState() {
@@ -158,6 +251,87 @@ async function sendToSwitcher(message) {
   const windowId = await getSwitcherWindowId();
   if (windowId === null) return;
   chrome.runtime.sendMessage(message).catch(() => {});
+}
+
+function getMacWindowSnapshot() {
+  if (!isMacOS()) {
+    return {
+      windows: [],
+      macWindowState: {
+        available: false,
+        accessibilityTrusted: false,
+        error: ""
+      }
+    };
+  }
+
+  if (!macWindowCache) {
+    return {
+      windows: [],
+      macWindowState: null
+    };
+  }
+
+  return {
+    windows: macWindowCache.windows,
+    macWindowState: macWindowCache.state
+  };
+}
+
+function isMacWindowCacheFresh() {
+  if (!macWindowCache) return false;
+  const cacheTtl = macWindowCache.state?.available
+    ? MAC_WINDOW_CACHE_TTL_MS
+    : MAC_WINDOW_FAILURE_RETRY_MS;
+  return Date.now() - macWindowCache.updatedAt < cacheTtl;
+}
+
+function refreshMacWindows() {
+  if (!isMacOS() || macWindowRefreshPromise || isMacWindowCacheFresh()) {
+    return macWindowRefreshPromise || Promise.resolve();
+  }
+
+  macWindowRefreshPromise = requestNative("list_windows")
+    .then((result) => ({
+      windows: result.windows || [],
+      state: {
+        available: true,
+        accessibilityTrusted: result.accessibilityTrusted !== false,
+        error: ""
+      }
+    }))
+    .catch((error) => ({
+      windows: macWindowCache?.windows || [],
+      state: {
+        available: false,
+        accessibilityTrusted: false,
+        error: error.message || ""
+      }
+    }))
+    .then((snapshot) => {
+      const notificationKey = JSON.stringify({
+        windows: snapshot.windows,
+        state: snapshot.state
+      });
+      const shouldNotify = macWindowCache?.notificationKey !== notificationKey;
+      macWindowCache = {
+        ...snapshot,
+        notificationKey,
+        updatedAt: Date.now()
+      };
+      if (!shouldNotify) return;
+      return sendToSwitcher({
+        type: "MAC_WINDOWS_UPDATED",
+        windows: normalizeMacWindows(snapshot.windows),
+        macWindowState: snapshot.state
+      });
+    })
+    .catch(() => {})
+    .finally(() => {
+      macWindowRefreshPromise = null;
+    });
+
+  return macWindowRefreshPromise;
 }
 
 async function closeSwitcherWindow() {
@@ -306,10 +480,102 @@ function normalizeWindows(allWindows) {
     );
     return {
       ...window,
+      kind: "chrome",
+      category: "chrome",
+      appName: "Chrome",
       windowLabel,
       tabs: window.tabs.map((tab) => ({ ...tab, windowLabel }))
     };
   });
+}
+
+function normalizeMacWindows(macWindows = []) {
+  const groups = new Map();
+
+  macWindows.forEach((window) => {
+    const groupKey = window.bundleIdentifier || window.appName || `pid-${window.pid}`;
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        id: `mac-app-${groupKey}`,
+        kind: "mac",
+        category: "mac",
+        appName: window.appName || "macOS",
+        windowLabel: window.appName || "macOS",
+        tabs: []
+      });
+    }
+
+    const nativeTitle = window.title || window.appName || localizedMessage(
+      "untitledMacWindow",
+      [],
+      "未命名窗口"
+    );
+    groups.get(groupKey).tabs.push({
+      id: window.id,
+      kind: "mac-window",
+      isMacWindow: true,
+      windowId: window.id,
+      windowNumber: window.windowNumber,
+      pid: window.pid,
+      appName: window.appName || "macOS",
+      bundleIdentifier: window.bundleIdentifier || "",
+      iconDataUrl: window.iconDataUrl || "",
+      nativeTitle,
+      title: nativeTitle,
+      url: "",
+      host: "",
+      favIconUrl: "",
+      pinned: false,
+      audible: false,
+      recentRank: 0,
+      windowLabel: window.appName || "macOS",
+      bounds: window.bounds,
+      isOnScreen: Boolean(window.isOnScreen),
+      isActive: Boolean(window.isActive)
+    });
+  });
+
+  return [...groups.values()]
+    .map((group) => {
+      const tabs = group.tabs
+        .sort((first, second) =>
+          Number(second.isActive) - Number(first.isActive)
+          || Number(second.isOnScreen) - Number(first.isOnScreen)
+          || first.title.localeCompare(second.title)
+        );
+      const titleCounts = new Map();
+      tabs.forEach((tab) => {
+        titleCounts.set(
+          tab.nativeTitle,
+          (titleCounts.get(tab.nativeTitle) || 0) + 1
+        );
+      });
+      const titleOccurrences = new Map();
+      return {
+        ...group,
+        tabs: tabs.map((tab) => {
+          if ((titleCounts.get(tab.nativeTitle) || 0) < 2) return tab;
+
+          const sameTitleOrdinal = (titleOccurrences.get(tab.nativeTitle) || 0) + 1;
+          titleOccurrences.set(tab.nativeTitle, sameTitleOrdinal);
+          const suffix = localizedMessage(
+            "macWindowDuplicateSuffix",
+            [String(sameTitleOrdinal)],
+            `(窗口 ${sameTitleOrdinal})`
+          );
+          return {
+            ...tab,
+            title: `${tab.nativeTitle} ${suffix}`
+          };
+        })
+      };
+    })
+    .sort((first, second) => {
+      const firstActive = first.tabs.some((tab) => tab.isActive);
+      const secondActive = second.tabs.some((tab) => tab.isActive);
+      if (firstActive !== secondActive) return secondActive - firstActive;
+      return first.appName.localeCompare(second.appName);
+    });
 }
 
 function isGarbledBookmarkName(name = "") {
@@ -446,8 +712,14 @@ function getDisplayRowStats(windows) {
 
 async function getState() {
   await getSwitcherWindowId();
-  const allWindows = await chrome.windows.getAll({ populate: true });
-  const bookmarkTree = await chrome.bookmarks.getTree().catch(() => []);
+  const [allWindows, bookmarkTree] = await Promise.all([
+    chrome.windows.getAll({ populate: true }),
+    chrome.bookmarks.getTree().catch(() => [])
+  ]);
+  const {
+    windows: macWindows,
+    macWindowState
+  } = getMacWindowSnapshot();
   const faviconByUrl = new Map();
   allWindows.flatMap((window) => window.tabs || []).forEach((tab) => {
     const url = tabUrl(tab);
@@ -456,10 +728,14 @@ async function getState() {
     }
   });
   return {
-    windows: normalizeWindows(allWindows),
+    windows: [
+      ...normalizeWindows(allWindows),
+      ...normalizeMacWindows(macWindows)
+    ],
     bookmarkGroups: normalizeBookmarkGroups(bookmarkTree, faviconByUrl),
     sourceWindowId,
-    sourceTabId
+    sourceTabId,
+    macWindowState
   };
 }
 
@@ -796,13 +1072,36 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "GET_STATE") {
     getState()
-      .then((state) => sendResponse({ ok: true, ...state }))
+      .then((state) => {
+        sendResponse({ ok: true, ...state });
+        refreshMacWindows();
+      })
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 
+  if (message?.type === "REFRESH_MAC_WINDOWS") {
+    refreshMacWindows();
+    return false;
+  }
+
   if (message?.type === "ACTIVATE_TAB") {
     activateTab(message.tabId, message.windowId);
+    return false;
+  }
+
+  if (message?.type === "ACTIVATE_MAC_WINDOW") {
+    requestNative("activate_window", {
+      pid: message.pid,
+      windowNumber: message.windowNumber,
+      title: message.title || "",
+      bundleIdentifier: message.bundleIdentifier || "",
+      bounds: message.bounds || null
+    })
+      .then((result) => {
+        if (result.ok) closeSwitcherWindow();
+      })
+      .catch(() => {});
     return false;
   }
 

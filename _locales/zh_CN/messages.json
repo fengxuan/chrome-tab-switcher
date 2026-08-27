@@ -8,6 +8,9 @@
   "actionTitle": {
     "message": "打开 Chrome 标签切换器"
   },
+  "chromeAppName": {
+    "message": "Chrome"
+  },
   "commandDescription": {
     "message": "打开可视化标签切换器"
   },
@@ -21,10 +24,10 @@
     "message": "Chrome 标签切换器"
   },
   "searchPlaceholder": {
-    "message": "搜索标题、网址或拼音…"
+    "message": "搜索标签页、窗口标题、应用或拼音…"
   },
   "emptyNoMatch": {
-    "message": "没有匹配的标签页"
+    "message": "没有匹配的标签页或窗口"
   },
   "emptyNoMatchHint": {
     "message": "换一个关键词试试，或清空搜索框查看全部标签。"
@@ -79,6 +82,23 @@
   },
   "untitledTab": {
     "message": "未命名标签页"
+  },
+  "untitledMacWindow": {
+    "message": "未命名窗口"
+  },
+  "macWindowDuplicateSuffix": {
+    "message": "（窗口 $NUMBER$）",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "macAccessibilityHint": {
+    "message": "请在“系统设置 → 隐私与安全性 → 辅助功能”中允许 Chrome Tab Switcher。"
+  },
+  "macHelperUnavailableHint": {
+    "message": "未检测到 macOS 辅助程序，仅显示 Chrome 标签页。"
   },
   "windowLabel": {
     "message": "窗口 $NUMBER$",

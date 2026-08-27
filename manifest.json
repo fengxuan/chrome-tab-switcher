@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "default_locale": "zh_CN",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuFGlr1fVwops/MKp5tDKIpqDnmkDnkY6H2o044WUDUYh9rVgl0Ohpj+g4T3dGllWi9h11ICuDFXWooOyD5SYKwDodobN8gmvWC11CUPD+shE1vMVsSCsZFcuwkRLgB2WN00W3kfwPBFiKNb1UToEFfOkv9ywhMyYR5oNUl1xm/EMbzCrPokiMXwUhs3wI8mcSTidRVgutQFmPPrQ+f5EzLo9seiobmbUL+Fh6GVkJ9daPyWnSoBXN33pcM5llU/DFz5SoOAsosd0b/MC6Wmg78CRKcWEBnlFp93R/Qi56PIRQTpdQQ4oDBr7mcF/ooef7+nxUUtoJvwGTgf3sEMInwIDAQAB",
   "name": "__MSG_extensionName__",
   "version": "0.1.0",
   "description": "__MSG_extensionDescription__",
-  "permissions": ["tabs", "windows", "storage", "bookmarks"],
+  "permissions": ["tabs", "windows", "storage", "bookmarks", "nativeMessaging"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js"
