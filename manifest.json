@@ -30,8 +30,8 @@
     },
     "open-native-apps": {
       "suggested_key": {
-        "default": "Ctrl+Shift+A",
-        "mac": "Command+Shift+A"
+        "default": "Ctrl+Shift+G",
+        "mac": "Command+Shift+G"
       },
       "description": "__MSG_nativeAppsCommandDescription__"
     }

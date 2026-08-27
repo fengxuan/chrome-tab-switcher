@@ -51,6 +51,7 @@ let bookmarkUrlIndex = new Map();
 let bookmarkUrlIndexReady = false;
 let bookmarkUrlIndexLoadPromise = null;
 let bookmarkVisitPromise = Promise.resolve();
+const pendingBookmarkRemovals = new Set();
 let switcherWindowStateResolved = false;
 let openSwitcherPromise = null;
 let tabsChangedTimer = null;
@@ -338,6 +339,20 @@ function isSwitcherPage(url = "") {
 function isSwitcherWindow(window) {
   return window.type === "popup"
     && (window.tabs || []).some((tab) => isSwitcherPage(tabUrl(tab)));
+}
+
+function switcherView(window) {
+  const switcherTab = (window?.tabs || []).find((tab) =>
+    isSwitcherPage(tabUrl(tab))
+  );
+  if (!switcherTab) return "all";
+
+  try {
+    const view = new URL(tabUrl(switcherTab)).searchParams.get("view");
+    return ["favorites", "apps"].includes(view) ? view : "all";
+  } catch {
+    return "all";
+  }
 }
 
 async function findSwitcherWindowIds() {
@@ -988,7 +1003,11 @@ async function toggleSwitcherInternal({
   const existingWindowIds = await findSwitcherWindowIds();
   if (existingWindowIds.length > 0) {
     switcherWindowId = existingWindowIds[0];
-    if (requestedView !== "all") {
+    const existingWindow = await chrome.windows.get(switcherWindowId, {
+      populate: true
+    }).catch(() => null);
+    const currentView = switcherView(existingWindow);
+    if (requestedView !== "all" || currentView !== "all") {
       await chrome.windows.update(switcherWindowId, { focused: true })
         .catch(() => {});
       chrome.runtime.sendMessage({
@@ -1288,6 +1307,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
+  if (message?.type === "REMOVE_BOOKMARK") {
+    const bookmarkId = String(message.bookmarkId);
+    pendingBookmarkRemovals.add(bookmarkId);
+    chrome.bookmarks.remove(bookmarkId)
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => {
+        pendingBookmarkRemovals.delete(bookmarkId);
+        sendResponse({ ok: false, error: error.message });
+      });
+    return true;
+  }
+
   if (message?.type === "GET_BOOKMARK_FAVICON") {
     getBookmarkFavicon(message.url)
       .then((faviconUrl) => sendResponse({ ok: true, faviconUrl }))
@@ -1335,7 +1366,10 @@ function notifyBookmarksChanged() {
 }
 
 chrome.bookmarks.onCreated.addListener(notifyBookmarksChanged);
-chrome.bookmarks.onRemoved.addListener(notifyBookmarksChanged);
+chrome.bookmarks.onRemoved.addListener((bookmarkId) => {
+  if (pendingBookmarkRemovals.delete(String(bookmarkId))) return;
+  notifyBookmarksChanged();
+});
 chrome.bookmarks.onChanged.addListener(notifyBookmarksChanged);
 chrome.bookmarks.onMoved.addListener(notifyBookmarksChanged);
 chrome.bookmarks.onChildrenReordered.addListener(notifyBookmarksChanged);

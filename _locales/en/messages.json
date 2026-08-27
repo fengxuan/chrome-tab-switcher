@@ -74,6 +74,18 @@
   "favoritesSearchPlaceholder": {
     "message": "Search bookmarks by title, URL, or pinyin…"
   },
+  "removeBookmarkLabel": {
+    "message": "Remove this bookmark"
+  },
+  "removeBookmarkTitle": {
+    "message": "Remove bookmark"
+  },
+  "bookmarkRemovedLabel": {
+    "message": "Bookmark removed"
+  },
+  "bookmarkRemovedTitle": {
+    "message": "Bookmark removed"
+  },
   "nativeAppsSearchPlaceholder": {
     "message": "Search native apps or window titles…"
   },

@@ -74,6 +74,18 @@
   "favoritesSearchPlaceholder": {
     "message": "搜索收藏夹标题、网址或拼音…"
   },
+  "removeBookmarkLabel": {
+    "message": "取消收藏此书签"
+  },
+  "removeBookmarkTitle": {
+    "message": "取消收藏"
+  },
+  "bookmarkRemovedLabel": {
+    "message": "已取消收藏"
+  },
+  "bookmarkRemovedTitle": {
+    "message": "已取消收藏"
+  },
   "nativeAppsSearchPlaceholder": {
     "message": "搜索原生应用或窗口标题…"
   },

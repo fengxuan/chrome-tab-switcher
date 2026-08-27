@@ -8,7 +8,8 @@ const appState = {
   query: "",
   recentOnly: false,
   favoritesOnly: initialView === "favorites",
-  nativeAppsOnly: initialView === "apps"
+  nativeAppsOnly: initialView === "apps",
+  removedBookmarks: new Map()
 };
 
 const TAB_CARD_WIDTH = 152;
@@ -227,6 +228,128 @@ function applyTranslations() {
 
 function send(message) {
   return chrome.runtime.sendMessage(message);
+}
+
+function updateViewURL(view) {
+  const nextURL = new URL(window.location.href);
+  if (view === "all") nextURL.searchParams.delete("view");
+  else nextURL.searchParams.set("view", view);
+  window.history.replaceState(null, "", nextURL);
+}
+
+function mergeRemovedBookmarks(bookmarkGroups) {
+  if (!appState.favoritesOnly || !appState.removedBookmarks.size) {
+    return bookmarkGroups;
+  }
+
+  const groups = bookmarkGroups.map((group) => ({
+    ...group,
+    tabs: [...(group.tabs || [])]
+  }));
+  const groupsById = new Map(
+    groups.map((group, index) => [String(group.id), { group, index }])
+  );
+
+  appState.removedBookmarks.forEach((record, bookmarkId) => {
+    let entry = groupsById.get(String(record.groupId));
+    if (!entry) {
+      const group = {
+        id: record.groupId,
+        label: record.groupLabel,
+        tabs: []
+      };
+      const index = Math.min(record.groupIndex, groups.length);
+      groups.splice(index, 0, group);
+      entry = { group, index };
+      groupsById.set(String(group.id), entry);
+    }
+
+    const existingTabIndex = entry.group.tabs.findIndex((tab) =>
+      String(tab.bookmarkId) === bookmarkId
+    );
+    if (existingTabIndex >= 0) {
+      entry.group.tabs[existingTabIndex] = {
+        ...entry.group.tabs[existingTabIndex],
+        ...record.tab,
+        bookmarkRemoved: true
+      };
+      return;
+    }
+    const position = Math.min(record.position, entry.group.tabs.length);
+    entry.group.tabs.splice(position, 0, {
+      ...record.tab,
+      bookmarkRemoved: true
+    });
+  });
+
+  return groups;
+}
+
+function updateBookmarkToggle(toggle, tab, removed) {
+  if (!toggle) return;
+
+  toggle.classList.toggle("is-removed", removed);
+  toggle.setAttribute("aria-label", localizedMessage(
+    removed ? "bookmarkRemovedLabel" : "removeBookmarkLabel",
+    [],
+    removed ? "已取消收藏" : "取消收藏此书签"
+  ));
+  toggle.setAttribute("aria-pressed", String(!removed));
+  toggle.title = localizedMessage(
+    removed ? "bookmarkRemovedTitle" : "removeBookmarkTitle",
+    [],
+    removed ? "已取消收藏" : "取消收藏"
+  );
+  toggle.textContent = removed ? "☆" : "★";
+  toggle.disabled = removed;
+  toggle.dataset.bookmarkId = String(tab.bookmarkId);
+}
+
+function clearRemovedBookmarks() {
+  if (!appState.removedBookmarks.size) return;
+  const removedIds = new Set(appState.removedBookmarks.keys());
+  appState.bookmarkGroups = appState.bookmarkGroups
+    .map((group) => ({
+      ...group,
+      tabs: group.tabs.filter((tab) =>
+        !removedIds.has(String(tab.bookmarkId))
+      )
+    }))
+    .filter((group) => group.tabs.length > 0);
+  appState.removedBookmarks.clear();
+}
+
+async function removeBookmark(tab, bookmarkToggle) {
+  if (!tab.isBookmark || tab.bookmarkRemoved || tab.bookmarkId == null) return;
+
+  const groupIndex = appState.bookmarkGroups.findIndex((group) =>
+    group.tabs.some((item) => item.id === tab.id)
+  );
+  const group = appState.bookmarkGroups[groupIndex];
+  const position = group?.tabs.findIndex((item) => item.id === tab.id) ?? 0;
+  const bookmarkId = String(tab.bookmarkId);
+  appState.removedBookmarks.set(bookmarkId, {
+    tab: { ...tab, bookmarkRemoved: true },
+    groupId: group?.id || "uncategorized",
+    groupLabel: group?.label || "",
+    groupIndex: Math.max(0, groupIndex),
+    position: Math.max(0, position)
+  });
+  tab.bookmarkRemoved = true;
+  updateBookmarkToggle(bookmarkToggle, tab, true);
+
+  try {
+    const response = await send({
+      type: "REMOVE_BOOKMARK",
+      bookmarkId
+    });
+    if (!response?.ok) throw new Error(response?.error || "remove failed");
+  } catch {
+    if (!appState.removedBookmarks.has(bookmarkId)) return;
+    appState.removedBookmarks.delete(bookmarkId);
+    tab.bookmarkRemoved = false;
+    updateBookmarkToggle(bookmarkToggle, tab, false);
+  }
 }
 
 function matchesQuery(tab) {
@@ -703,6 +826,21 @@ function createCard(tab) {
     });
   }
 
+  let bookmarkToggle = null;
+  if (tab.isBookmark && appState.favoritesOnly) {
+    bookmarkToggle = document.createElement("button");
+    bookmarkToggle.type = "button";
+    bookmarkToggle.className = "favorite-toggle";
+    updateBookmarkToggle(bookmarkToggle, tab, Boolean(tab.bookmarkRemoved));
+    bookmarkToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      removeBookmark(tab, bookmarkToggle);
+    });
+    bookmarkToggle.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+    });
+  }
+
   const favicon = createFavicon(tab);
   const title = document.createElement("span");
   title.className = "tab-title";
@@ -728,6 +866,7 @@ function createCard(tab) {
   card.append(
     indicators,
     ...(closeButton ? [closeButton] : []),
+    ...(bookmarkToggle ? [bookmarkToggle] : []),
     favicon,
     title,
     ...(tab.pinned ? [flags] : []),
@@ -997,10 +1136,11 @@ function updateState(data) {
     ...window,
     tabs: window.tabs.map(indexTab)
   }));
-  appState.bookmarkGroups = (data.bookmarkGroups || []).map((group) => ({
-    ...group,
-    tabs: group.tabs.map(indexTab)
-  }));
+  appState.bookmarkGroups = mergeRemovedBookmarks(data.bookmarkGroups || [])
+    .map((group) => ({
+      ...group,
+      tabs: group.tabs.map(indexTab)
+    }));
   appState.sourceTabId = data.sourceTabId;
   appState.macWindowState = data.macWindowState || null;
   updateNativeStatus(appState.macWindowState);
@@ -1134,11 +1274,17 @@ function setFavoritesFilter(favoritesOnly) {
 }
 
 function setView(view) {
-  appState.favoritesOnly = view === "favorites";
-  appState.nativeAppsOnly = view === "apps";
+  const nextView = ["favorites", "apps"].includes(view) ? view : "all";
+  const currentView = appState.favoritesOnly
+    ? "favorites"
+    : (appState.nativeAppsOnly ? "apps" : "all");
+  if (currentView !== nextView) clearRemovedBookmarks();
+  appState.favoritesOnly = nextView === "favorites";
+  appState.nativeAppsOnly = nextView === "apps";
   if (appState.favoritesOnly || appState.nativeAppsOnly) {
     appState.recentOnly = false;
   }
+  updateViewURL(nextView);
   updateRecentFilterAccessibility();
   updateFavoritesFilterAccessibility();
 

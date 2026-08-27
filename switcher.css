@@ -400,6 +400,46 @@ kbd {
   color: var(--surface-ring);
 }
 
+.favorite-toggle {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 2;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--selected-border);
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  transition: opacity 130ms ease, background 130ms ease, color 130ms ease, transform 130ms ease;
+}
+
+.tab-card:hover .favorite-toggle,
+.tab-card:focus-visible .favorite-toggle,
+.favorite-toggle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.favorite-toggle:hover,
+.favorite-toggle:focus-visible {
+  outline: 0;
+  background: var(--selected-background);
+  transform: scale(1.08);
+}
+
+.favorite-toggle.is-removed {
+  color: var(--muted-text);
+}
+
 .tab-indicators {
   position: absolute;
   top: 7px;

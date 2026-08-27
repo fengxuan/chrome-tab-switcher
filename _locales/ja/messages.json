@@ -74,6 +74,18 @@
   "favoritesSearchPlaceholder": {
     "message": "ブックマークをタイトル、URL、ピンインで検索…"
   },
+  "removeBookmarkLabel": {
+    "message": "このブックマークを削除"
+  },
+  "removeBookmarkTitle": {
+    "message": "ブックマークを削除"
+  },
+  "bookmarkRemovedLabel": {
+    "message": "ブックマークを削除しました"
+  },
+  "bookmarkRemovedTitle": {
+    "message": "ブックマークを削除しました"
+  },
   "nativeAppsSearchPlaceholder": {
     "message": "ネイティブアプリまたはウィンドウタイトルを検索…"
   },

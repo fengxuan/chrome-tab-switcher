@@ -39,7 +39,7 @@ macOS 窗口功能由 Swift Helper 和 Chrome Native Messaging 提供。只想�
 - macOS：`Command + Shift + Space`；
 - Windows/Linux：`Ctrl + Shift + Space`；
 - 收藏夹视图：macOS 使用 `Command + Shift + F`，Windows/Linux 使用 `Ctrl + Shift + F`。
-- 仅显示 macOS 原生应用：`Command + Shift + A`（Windows/Linux 为 `Ctrl + Shift + A`，无 macOS 应用时为空）。
+- 仅显示 macOS 原生应用：`Command + Shift + G`（Windows/Linux 为 `Ctrl + Shift + G`，无 macOS 应用时为空）。
 
 如果 Chrome 提示快捷键已被占用，可以打开 `chrome://extensions/shortcuts` 修改快捷键。
 
@@ -114,15 +114,15 @@ macos/ChromeTabSwitcherHotKey/dist/Chrome Tab Switcher.app
 3. 在切换器中搜索应用名或窗口标题。
 4. 点击窗口卡片，或选中后按 `Enter`。
 
-按 `Command + Shift + A` 可直接打开仅包含 macOS 原生应用窗口的视图。
+按 `Command + Shift + G` 可直接打开仅包含 macOS 原生应用窗口的视图。
 
 macOS Helper 运行后会显示在菜单栏中。它需要保持运行，才能从其它应用监听全局快捷键和激活窗口。
 
 ## 快捷键同步
 
-扩展快捷键和 macOS Helper 的普通切换器快捷键必须一致。
+扩展快捷键和 macOS Helper 中对应功能的快捷键必须一致。
 
-如果通过菜单栏 Helper 更换了普通快捷键，还需要在 `chrome://extensions/shortcuts` 中把“Chrome Tab Switcher”的普通切换器快捷键改成相同组合。收藏夹快捷键默认固定为 `Command + Shift + F`，原生应用快捷键默认固定为 `Command + Shift + A`。
+菜单栏 Helper 的“分别设置快捷键…”可以为普通切换器、收藏夹、原生应用三个功能分别录入快捷键。修改后，还需要在 `chrome://extensions/shortcuts` 中把“Chrome Tab Switcher”的三个命令分别改成相同组合。
 
 ## 使用方式
 
@@ -133,7 +133,7 @@ macOS Helper 运行后会显示在菜单栏中。它需要保持运行，才能�
 - `⌘ K` / `Ctrl K`：聚焦搜索框；
 - `Esc`：关闭切换器；
 - 点击卡片右上角的 `×`：关闭 Chrome 标签页；
-- 点击星标 `Favorites`：只查看收藏夹。
+- 点击星标 `Favorites`：只查看收藏夹；点击收藏卡片右上角的星标可取消收藏。
 - 收藏夹视图中的“最近访问”标记和筛选：显示最近 30 天内访问过的书签；这些书签会按最近访问时间优先排列。
 
 搜索支持：
