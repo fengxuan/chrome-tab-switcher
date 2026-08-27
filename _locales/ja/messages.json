@@ -71,6 +71,18 @@
   "favoritesFilterShowFavoritesTitle": {
     "message": "クリックしてブックマークしたタブのみ表示"
   },
+  "nativeAppsFilterLabel": {
+    "message": "ネイティブアプリ"
+  },
+  "nativeAppsFilterAriaLabel": {
+    "message": "macOS のネイティブアプリウィンドウのみ表示"
+  },
+  "nativeAppsFilterShowAllTitle": {
+    "message": "クリックしてすべてのタブとウィンドウを表示"
+  },
+  "nativeAppsFilterShowNativeTitle": {
+    "message": "クリックしてネイティブアプリウィンドウのみ表示"
+  },
   "favoritesSearchPlaceholder": {
     "message": "ブックマークをタイトル、URL、ピンインで検索…"
   },

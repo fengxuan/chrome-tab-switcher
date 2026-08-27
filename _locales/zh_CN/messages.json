@@ -71,6 +71,18 @@
   "favoritesFilterShowFavoritesTitle": {
     "message": "点击只显示收藏夹标签页"
   },
+  "nativeAppsFilterLabel": {
+    "message": "原生应用"
+  },
+  "nativeAppsFilterAriaLabel": {
+    "message": "只显示 macOS 原生应用窗口"
+  },
+  "nativeAppsFilterShowAllTitle": {
+    "message": "点击显示全部标签页和窗口"
+  },
+  "nativeAppsFilterShowNativeTitle": {
+    "message": "点击只显示 macOS 原生应用窗口"
+  },
   "favoritesSearchPlaceholder": {
     "message": "搜索收藏夹标题、网址或拼音…"
   },

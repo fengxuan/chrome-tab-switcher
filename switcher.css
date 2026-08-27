@@ -138,7 +138,8 @@ button {
   margin: 0 auto;
 }
 
-.favorites-filter {
+.favorites-filter,
+.native-apps-filter {
   display: inline-flex;
   flex: 0 0 auto;
   height: 42px;
@@ -158,7 +159,10 @@ button {
 
 .favorites-filter:hover,
 .favorites-filter:focus-visible,
-.favorites-filter[aria-pressed="true"] {
+.favorites-filter[aria-pressed="true"],
+.native-apps-filter:hover,
+.native-apps-filter:focus-visible,
+.native-apps-filter[aria-pressed="true"] {
   border-color: var(--selected-border);
   outline: 0;
   background: var(--selected-background);
@@ -169,6 +173,12 @@ button {
 .favorites-star {
   color: currentColor;
   font-size: 17px;
+  line-height: 1;
+}
+
+.native-apps-icon {
+  color: currentColor;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -229,6 +239,7 @@ kbd {
   /* 7 个窗口行：顶部 12px + 7 × 130px + 6 × 7px。 */
   max-height: 964px;
   overflow-y: auto;
+  overflow-anchor: none;
   padding-top: 12px;
   scrollbar-color: var(--scrollbar-thumb) transparent;
   scrollbar-width: thin;

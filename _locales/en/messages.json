@@ -71,6 +71,18 @@
   "favoritesFilterShowFavoritesTitle": {
     "message": "Click to show only bookmarked tabs"
   },
+  "nativeAppsFilterLabel": {
+    "message": "Native Apps"
+  },
+  "nativeAppsFilterAriaLabel": {
+    "message": "Show only native macOS application windows"
+  },
+  "nativeAppsFilterShowAllTitle": {
+    "message": "Click to show all tabs and windows"
+  },
+  "nativeAppsFilterShowNativeTitle": {
+    "message": "Click to show only native macOS application windows"
+  },
   "favoritesSearchPlaceholder": {
     "message": "Search bookmarks by title, URL, or pinyin…"
   },

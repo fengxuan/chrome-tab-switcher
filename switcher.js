@@ -116,7 +116,8 @@ const elements = {
   windowGroups: document.querySelector("#window-groups"),
   nativeStatus: document.querySelector("#native-status"),
   recentFilter: document.querySelector("#recent-filter"),
-  favoritesFilter: document.querySelector("#favorites-filter")
+  favoritesFilter: document.querySelector("#favorites-filter"),
+  nativeAppsFilter: document.querySelector("#native-apps-filter")
 };
 
 function localizedMessage(name, substitutions = [], fallback = name) {
@@ -183,6 +184,27 @@ function updateFavoritesFilterAccessibility() {
       ? "搜索收藏夹标题、网址或拼音…"
       : (appState.nativeAppsOnly ? "搜索原生应用或窗口标题…" : "搜索标题、网址或拼音…")
   );
+  elements.nativeAppsFilter.setAttribute(
+    "aria-pressed",
+    String(appState.nativeAppsOnly)
+  );
+  elements.nativeAppsFilter.setAttribute(
+    "aria-label",
+    localizedMessage(
+      "nativeAppsFilterAriaLabel",
+      [],
+      "只显示 macOS 原生应用窗口"
+    )
+  );
+  elements.nativeAppsFilter.title = localizedMessage(
+    appState.nativeAppsOnly
+      ? "nativeAppsFilterShowAllTitle"
+      : "nativeAppsFilterShowNativeTitle",
+    [],
+    appState.nativeAppsOnly
+      ? "点击显示全部标签页和窗口"
+      : "点击只显示 macOS 原生应用窗口"
+  );
 }
 
 function applyTranslations() {
@@ -206,6 +228,11 @@ function applyTranslations() {
     "favoritesFilterLabel",
     [],
     "Favorites"
+  );
+  document.querySelector("#native-apps-filter-label").textContent = localizedMessage(
+    "nativeAppsFilterLabel",
+    [],
+    "原生应用"
   );
   document.querySelector("#hint-control").textContent = localizedMessage(
     "hintControlSelection",
@@ -946,7 +973,10 @@ function render({ centerSelected = true, revealSelected = true } = {}) {
   fitTabTitles();
   updateMergedRowAlignment();
   restoreCardScrollPositions(scrollPositions);
-  focusSelectedCard({ center: centerSelected, reveal: revealSelected });
+  focusSelectedCard({
+    center: centerSelected,
+    reveal: revealSelected && !contentScrollResetPending
+  });
   scheduleResize();
 }
 
@@ -1030,6 +1060,26 @@ function scheduleLayoutRender() {
 }
 
 scheduleLayoutRender.frame = null;
+
+let contentScrollResetPending = false;
+let contentScrollResetFrame = null;
+
+function requestContentScrollReset() {
+  contentScrollResetPending = true;
+  if (contentScrollResetFrame !== null) {
+    cancelAnimationFrame(contentScrollResetFrame);
+  }
+
+  elements.content.scrollTop = 0;
+  contentScrollResetFrame = requestAnimationFrame(() => {
+    elements.content.scrollTop = 0;
+    contentScrollResetFrame = requestAnimationFrame(() => {
+      elements.content.scrollTop = 0;
+      contentScrollResetFrame = null;
+      contentScrollResetPending = false;
+    });
+  });
+}
 
 function updateSearchShortcut() {
   const shortcut = document.querySelector("#search-shortcut");
@@ -1278,7 +1328,9 @@ function setView(view) {
   const currentView = appState.favoritesOnly
     ? "favorites"
     : (appState.nativeAppsOnly ? "apps" : "all");
-  if (currentView !== nextView) clearRemovedBookmarks();
+  const viewChanged = currentView !== nextView;
+  if (viewChanged) clearRemovedBookmarks();
+  if (viewChanged) requestContentScrollReset();
   appState.favoritesOnly = nextView === "favorites";
   appState.nativeAppsOnly = nextView === "apps";
   if (appState.favoritesOnly || appState.nativeAppsOnly) {
@@ -1292,7 +1344,7 @@ function setView(view) {
   if (!visible.some((tab) => tab.id === appState.selectedTabId)) {
     appState.selectedTabId = visible[0]?.id ?? null;
   }
-  render();
+  render({ centerSelected: !viewChanged, revealSelected: !viewChanged });
 }
 
 function toggleFavoritesFilter() {
@@ -1305,6 +1357,12 @@ elements.recentFilter.addEventListener("keydown", (event) => {
 });
 elements.favoritesFilter.addEventListener("click", toggleFavoritesFilter);
 elements.favoritesFilter.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+});
+elements.nativeAppsFilter.addEventListener("click", () => {
+  setView(appState.nativeAppsOnly ? "all" : "apps");
+});
+elements.nativeAppsFilter.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") event.stopPropagation();
 });
 
