@@ -17,6 +17,9 @@
   "favoritesCommandDescription": {
     "message": "Open bookmarked tabs"
   },
+  "nativeAppsCommandDescription": {
+    "message": "Show only native macOS application windows"
+  },
   "languageCode": {
     "message": "en"
   },
@@ -35,6 +38,9 @@
   "recentFilterLabel": {
     "message": "Recently switched"
   },
+  "bookmarkRecentFilterLabel": {
+    "message": "Recently visited"
+  },
   "recentFilterAriaLabel": {
     "message": "Show only recently switched tabs"
   },
@@ -43,6 +49,15 @@
   },
   "recentFilterShowRecentTitle": {
     "message": "Click to show only recently switched tabs"
+  },
+  "bookmarkRecentFilterAriaLabel": {
+    "message": "Show only recently visited bookmarks"
+  },
+  "bookmarkRecentFilterShowAllTitle": {
+    "message": "Click to show all bookmarks"
+  },
+  "bookmarkRecentFilterShowRecentTitle": {
+    "message": "Click to show only recently visited bookmarks"
   },
   "favoritesFilterLabel": {
     "message": "Favorites"
@@ -59,11 +74,20 @@
   "favoritesSearchPlaceholder": {
     "message": "Search bookmarks by title, URL, or pinyin…"
   },
+  "nativeAppsSearchPlaceholder": {
+    "message": "Search native apps or window titles…"
+  },
   "favoritesEmptyTitle": {
     "message": "No bookmarks"
   },
   "favoritesEmptyHint": {
     "message": "Add a bookmark in Chrome, or try another keyword."
+  },
+  "nativeAppsEmptyTitle": {
+    "message": "No native application windows"
+  },
+  "nativeAppsEmptyHint": {
+    "message": "Open a macOS application window, or try another keyword."
   },
   "uncategorizedBookmarks": {
     "message": "Uncategorized"
@@ -119,6 +143,14 @@
       }
     }
   },
+  "bookmarkRecentRank": {
+    "message": "Recently visited, rank $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
   "pinnedSuffix": {
     "message": ", pinned"
   },
@@ -127,6 +159,14 @@
   },
   "recentSuffix": {
     "message": ", recently switched, rank $NUMBER$",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "bookmarkRecentSuffix": {
+    "message": ", recently visited, rank $NUMBER$",
     "placeholders": {
       "number": {
         "content": "$1"

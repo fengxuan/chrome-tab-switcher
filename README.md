@@ -5,6 +5,7 @@ Chrome Tab Switcher 是一个本地运行的 Chrome 标签页和 macOS 窗口切
 - 在 Chrome 中集中查看多个窗口的标签页；
 - 在 macOS 上统一查看 Finder、Visual Studio Code、Terminal 等应用窗口；
 - 支持搜索应用名、窗口标题、标签页标题、网址和中文拼音；
+- 收藏夹会记录本机观察到的访问次数，并优先显示最近访问的书签；
 - 支持鼠标、键盘和全局快捷键切换；
 - 所有标签页、窗口标题和网页内容只在本机处理。
 
@@ -38,6 +39,7 @@ macOS 窗口功能由 Swift Helper 和 Chrome Native Messaging 提供。只想�
 - macOS：`Command + Shift + Space`；
 - Windows/Linux：`Ctrl + Shift + Space`；
 - 收藏夹视图：macOS 使用 `Command + Shift + F`，Windows/Linux 使用 `Ctrl + Shift + F`。
+- 仅显示 macOS 原生应用：`Command + Shift + A`（Windows/Linux 为 `Ctrl + Shift + A`，无 macOS 应用时为空）。
 
 如果 Chrome 提示快捷键已被占用，可以打开 `chrome://extensions/shortcuts` 修改快捷键。
 
@@ -66,7 +68,7 @@ macos/ChromeTabSwitcherHotKey/dist/Chrome Tab Switcher.app
 当前扩展 manifest 已固定本地开发扩展 ID。启动菜单栏 Helper 时，它会自动创建或更新：
 
 ```text
-~/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.local.chrometabswitcher.json
+~/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.local.chrometabswitcher.v2.json
 ```
 
 启动菜单栏 Helper：
@@ -112,13 +114,15 @@ macos/ChromeTabSwitcherHotKey/dist/Chrome Tab Switcher.app
 3. 在切换器中搜索应用名或窗口标题。
 4. 点击窗口卡片，或选中后按 `Enter`。
 
+按 `Command + Shift + A` 可直接打开仅包含 macOS 原生应用窗口的视图。
+
 macOS Helper 运行后会显示在菜单栏中。它需要保持运行，才能从其它应用监听全局快捷键和激活窗口。
 
 ## 快捷键同步
 
 扩展快捷键和 macOS Helper 的普通切换器快捷键必须一致。
 
-如果通过菜单栏 Helper 更换了普通快捷键，还需要在 `chrome://extensions/shortcuts` 中把“Chrome Tab Switcher”的普通切换器快捷键改成相同组合。收藏夹快捷键默认固定为 `Command + Shift + F`。
+如果通过菜单栏 Helper 更换了普通快捷键，还需要在 `chrome://extensions/shortcuts` 中把“Chrome Tab Switcher”的普通切换器快捷键改成相同组合。收藏夹快捷键默认固定为 `Command + Shift + F`，原生应用快捷键默认固定为 `Command + Shift + A`。
 
 ## 使用方式
 
@@ -130,6 +134,7 @@ macOS Helper 运行后会显示在菜单栏中。它需要保持运行，才能�
 - `Esc`：关闭切换器；
 - 点击卡片右上角的 `×`：关闭 Chrome 标签页；
 - 点击星标 `Favorites`：只查看收藏夹。
+- 收藏夹视图中的“最近访问”标记和筛选：显示最近 30 天内访问过的书签；这些书签会按最近访问时间优先排列。
 
 搜索支持：
 
@@ -172,7 +177,7 @@ Helper 启动时会自动更新 Native Messaging host 配置。
 2. 删除 Native Messaging host 配置：
 
 ```sh
-rm "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.local.chrometabswitcher.json"
+rm "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.local.chrometabswitcher.v2.json"
 ```
 
 3. 删除项目中的 `macos/ChromeTabSwitcherHotKey/dist/Chrome Tab Switcher.app`（如果不再需要）。

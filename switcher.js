@@ -1,3 +1,4 @@
+const initialView = new URLSearchParams(window.location.search).get("view");
 const appState = {
   windows: [],
   bookmarkGroups: [],
@@ -6,8 +7,8 @@ const appState = {
   selectedTabId: null,
   query: "",
   recentOnly: false,
-  favoritesOnly: new URLSearchParams(window.location.search).get("view")
-    === "favorites"
+  favoritesOnly: initialView === "favorites",
+  nativeAppsOnly: initialView === "apps"
 };
 
 const TAB_CARD_WIDTH = 152;
@@ -123,23 +124,34 @@ function localizedMessage(name, substitutions = [], fallback = name) {
 }
 
 function updateRecentFilterAccessibility() {
+  const isBookmarkView = appState.favoritesOnly;
   elements.recentFilter.setAttribute(
     "aria-label",
     localizedMessage(
-      "recentFilterAriaLabel",
+      isBookmarkView ? "bookmarkRecentFilterAriaLabel" : "recentFilterAriaLabel",
       [],
-      "只显示最近切换的标签页"
+      isBookmarkView ? "只显示最近访问的收藏夹" : "只显示最近切换的标签页"
     )
   );
+  document.querySelector("#recent-filter-label").textContent = localizedMessage(
+    isBookmarkView ? "bookmarkRecentFilterLabel" : "recentFilterLabel",
+    [],
+    isBookmarkView ? "最近访问" : "最近切换"
+  );
   elements.recentFilter.title = localizedMessage(
-    appState.recentOnly
-      ? "recentFilterShowAllTitle"
-      : "recentFilterShowRecentTitle",
+    isBookmarkView
+      ? (appState.recentOnly
+        ? "bookmarkRecentFilterShowAllTitle"
+        : "bookmarkRecentFilterShowRecentTitle")
+      : (appState.recentOnly
+        ? "recentFilterShowAllTitle"
+        : "recentFilterShowRecentTitle"),
     [],
     appState.recentOnly
-      ? "点击显示全部标签页"
-      : "点击只显示最近切换的标签页"
+      ? "点击显示全部"
+      : (isBookmarkView ? "点击只显示最近访问的收藏夹" : "点击只显示最近切换的标签页")
   );
+  elements.recentFilter.hidden = appState.nativeAppsOnly;
 }
 
 function updateFavoritesFilterAccessibility() {
@@ -160,15 +172,15 @@ function updateFavoritesFilterAccessibility() {
       ? "点击显示全部标签页"
       : "点击只显示收藏夹标签页"
   );
-  elements.recentFilter.hidden = appState.favoritesOnly;
+  const searchPlaceholderKey = appState.favoritesOnly
+    ? "favoritesSearchPlaceholder"
+    : (appState.nativeAppsOnly ? "nativeAppsSearchPlaceholder" : "searchPlaceholder");
   elements.search.placeholder = localizedMessage(
-    appState.favoritesOnly
-      ? "favoritesSearchPlaceholder"
-      : "searchPlaceholder",
+    searchPlaceholderKey,
     [],
     appState.favoritesOnly
       ? "搜索收藏夹标题、网址或拼音…"
-      : "搜索标题、网址或拼音…"
+      : (appState.nativeAppsOnly ? "搜索原生应用或窗口标题…" : "搜索标题、网址或拼音…")
   );
 }
 
@@ -188,11 +200,6 @@ function applyTranslations() {
     "emptyNoMatchHint",
     [],
     "换一个关键词试试，或清空搜索框查看全部标签。"
-  );
-  document.querySelector("#recent-filter-label").textContent = localizedMessage(
-    "recentFilterLabel",
-    [],
-    "最近切换"
   );
   document.querySelector("#favorites-filter-label").textContent = localizedMessage(
     "favoritesFilterLabel",
@@ -223,7 +230,10 @@ function send(message) {
 }
 
 function matchesQuery(tab) {
-  if (appState.recentOnly && !tab.recentRank) return false;
+  const recentRank = appState.favoritesOnly
+    ? tab.bookmarkRecentRank
+    : tab.recentRank;
+  if (appState.recentOnly && !recentRank) return false;
   const query = normalizeSearchText(appState.query);
   if (!query) return true;
   return (tab.searchText || indexTab(tab).searchText).includes(query);
@@ -253,9 +263,11 @@ function visibleBookmarkGroups() {
 }
 
 function visibleGroups() {
-  return appState.favoritesOnly
-    ? visibleBookmarkGroups()
-    : visibleWindowGroups();
+  if (appState.favoritesOnly) return visibleBookmarkGroups();
+  const groups = visibleWindowGroups();
+  return appState.nativeAppsOnly
+    ? groups.filter((group) => windowCategory(group) === "mac")
+    : groups;
 }
 
 function groupLabel(group) {
@@ -413,8 +425,8 @@ function displayCategoryRows(groups) {
 
 function displayWindowRows(groups) {
   const groupsByCategory = new Map([
-    ["chrome", []],
-    ["mac", []]
+    ["mac", []],
+    ["chrome", []]
   ]);
   groups.forEach((group) => groupsByCategory.get(windowCategory(group)).push(group));
 
@@ -610,12 +622,13 @@ function createCard(tab) {
   const displayTitle = tab.isMacWindow
     ? getMacWindowDisplayTitle(tab.title || tab.appName)
     : getDisplayTitle(tab.title || tab.appName);
+  const recentRank = tab.isBookmark ? tab.bookmarkRecentRank : tab.recentRank;
   const statusLabels = [
-    tab.recentRank
+    recentRank
       ? localizedMessage(
-        "recentRank",
-        [String(tab.recentRank)],
-        `最近切换第 ${tab.recentRank}`
+        tab.isBookmark ? "bookmarkRecentRank" : "recentRank",
+        [String(recentRank)],
+        tab.isBookmark ? `最近访问第 ${recentRank}` : `最近切换第 ${recentRank}`
       )
       : ""
   ].filter(Boolean);
@@ -626,11 +639,11 @@ function createCard(tab) {
     tab.audible
       ? localizedMessage("audibleSuffix", [], "，正在播放媒体")
       : "",
-    tab.recentRank
+    recentRank
       ? localizedMessage(
-        "recentSuffix",
-        [String(tab.recentRank)],
-        `，最近切换第 ${tab.recentRank} 个`
+        tab.isBookmark ? "bookmarkRecentSuffix" : "recentSuffix",
+        [String(recentRank)],
+        tab.isBookmark ? `，最近访问第 ${recentRank} 个` : `，最近切换第 ${recentRank} 个`
       )
       : ""
   ].join("");
@@ -744,6 +757,17 @@ function render({ centerSelected = true, revealSelected = true } = {}) {
       "favoritesEmptyHint",
       [],
       "请先在 Chrome 中添加书签，或换一个关键词试试。"
+    );
+  } else if (appState.nativeAppsOnly) {
+    elements.empty.querySelector("h2").textContent = localizedMessage(
+      "nativeAppsEmptyTitle",
+      [],
+      "没有可显示的原生应用窗口"
+    );
+    elements.empty.querySelector("p").textContent = localizedMessage(
+      "nativeAppsEmptyHint",
+      [],
+      "请打开一个 macOS 应用窗口，或换一个关键词试试。"
     );
   } else {
     elements.empty.querySelector("h2").textContent = localizedMessage(
@@ -1093,7 +1117,7 @@ function showLoadError() {
 }
 
 function toggleRecentFilter() {
-  if (appState.favoritesOnly) return;
+  if (appState.nativeAppsOnly) return;
   appState.recentOnly = !appState.recentOnly;
   elements.recentFilter.setAttribute("aria-pressed", String(appState.recentOnly));
   updateRecentFilterAccessibility();
@@ -1106,8 +1130,16 @@ function toggleRecentFilter() {
 }
 
 function setFavoritesFilter(favoritesOnly) {
-  appState.favoritesOnly = favoritesOnly;
-  if (appState.favoritesOnly) appState.recentOnly = false;
+  setView(favoritesOnly ? "favorites" : "all");
+}
+
+function setView(view) {
+  appState.favoritesOnly = view === "favorites";
+  appState.nativeAppsOnly = view === "apps";
+  if (appState.favoritesOnly || appState.nativeAppsOnly) {
+    appState.recentOnly = false;
+  }
+  updateRecentFilterAccessibility();
   updateFavoritesFilterAccessibility();
 
   const visible = visibleTabs();
@@ -1182,7 +1214,7 @@ chrome.runtime.onMessage.addListener((message) => {
     updateMacWindows(message.windows, message.macWindowState);
   }
   if (message?.type === "SET_VIEW") {
-    setFavoritesFilter(Boolean(message.favoritesOnly));
+    setView(message.view || (message.favoritesOnly ? "favorites" : "all"));
   }
 });
 

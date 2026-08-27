@@ -17,6 +17,9 @@
   "favoritesCommandDescription": {
     "message": "ブックマークしたタブを開く"
   },
+  "nativeAppsCommandDescription": {
+    "message": "macOS のネイティブアプリウィンドウのみを表示"
+  },
   "languageCode": {
     "message": "ja"
   },
@@ -35,6 +38,9 @@
   "recentFilterLabel": {
     "message": "最近切り替えたタブ"
   },
+  "bookmarkRecentFilterLabel": {
+    "message": "最近アクセスしたブックマーク"
+  },
   "recentFilterAriaLabel": {
     "message": "最近切り替えたタブのみ表示"
   },
@@ -43,6 +49,15 @@
   },
   "recentFilterShowRecentTitle": {
     "message": "クリックして最近切り替えたタブのみ表示"
+  },
+  "bookmarkRecentFilterAriaLabel": {
+    "message": "最近アクセスしたブックマークのみ表示"
+  },
+  "bookmarkRecentFilterShowAllTitle": {
+    "message": "クリックしてすべてのブックマークを表示"
+  },
+  "bookmarkRecentFilterShowRecentTitle": {
+    "message": "クリックして最近アクセスしたブックマークのみ表示"
   },
   "favoritesFilterLabel": {
     "message": "お気に入り"
@@ -59,11 +74,20 @@
   "favoritesSearchPlaceholder": {
     "message": "ブックマークをタイトル、URL、ピンインで検索…"
   },
+  "nativeAppsSearchPlaceholder": {
+    "message": "ネイティブアプリまたはウィンドウタイトルを検索…"
+  },
   "favoritesEmptyTitle": {
     "message": "ブックマークがありません"
   },
   "favoritesEmptyHint": {
     "message": "Chrome でブックマークを追加するか、別のキーワードを試してください。"
+  },
+  "nativeAppsEmptyTitle": {
+    "message": "表示できるネイティブアプリウィンドウがありません"
+  },
+  "nativeAppsEmptyHint": {
+    "message": "macOS アプリのウィンドウを開くか、別のキーワードを試してください。"
   },
   "uncategorizedBookmarks": {
     "message": "未分類"
@@ -119,6 +143,14 @@
       }
     }
   },
+  "bookmarkRecentRank": {
+    "message": "最近アクセスしたブックマーク（$NUMBER$番目）",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
   "pinnedSuffix": {
     "message": "、固定済み"
   },
@@ -127,6 +159,14 @@
   },
   "recentSuffix": {
     "message": "、最近切り替えたタブ（$NUMBER$番目）",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "bookmarkRecentSuffix": {
+    "message": "、最近アクセスしたブックマーク（$NUMBER$番目）",
     "placeholders": {
       "number": {
         "content": "$1"

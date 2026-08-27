@@ -17,6 +17,9 @@
   "favoritesCommandDescription": {
     "message": "打开收藏夹标签页"
   },
+  "nativeAppsCommandDescription": {
+    "message": "只显示 macOS 原生应用窗口"
+  },
   "languageCode": {
     "message": "zh-CN"
   },
@@ -35,6 +38,9 @@
   "recentFilterLabel": {
     "message": "最近切换"
   },
+  "bookmarkRecentFilterLabel": {
+    "message": "最近访问"
+  },
   "recentFilterAriaLabel": {
     "message": "只显示最近切换的标签页"
   },
@@ -43,6 +49,15 @@
   },
   "recentFilterShowRecentTitle": {
     "message": "点击只显示最近切换的标签页"
+  },
+  "bookmarkRecentFilterAriaLabel": {
+    "message": "只显示最近访问的收藏夹"
+  },
+  "bookmarkRecentFilterShowAllTitle": {
+    "message": "点击显示全部收藏夹"
+  },
+  "bookmarkRecentFilterShowRecentTitle": {
+    "message": "点击只显示最近访问的收藏夹"
   },
   "favoritesFilterLabel": {
     "message": "收藏夹"
@@ -59,11 +74,20 @@
   "favoritesSearchPlaceholder": {
     "message": "搜索收藏夹标题、网址或拼音…"
   },
+  "nativeAppsSearchPlaceholder": {
+    "message": "搜索原生应用或窗口标题…"
+  },
   "favoritesEmptyTitle": {
     "message": "没有收藏的标签页"
   },
   "favoritesEmptyHint": {
     "message": "请先在 Chrome 中添加书签，或换一个关键词试试。"
+  },
+  "nativeAppsEmptyTitle": {
+    "message": "没有可显示的原生应用窗口"
+  },
+  "nativeAppsEmptyHint": {
+    "message": "请打开一个 macOS 应用窗口，或换一个关键词试试。"
   },
   "uncategorizedBookmarks": {
     "message": "未分类"
@@ -119,6 +143,14 @@
       }
     }
   },
+  "bookmarkRecentRank": {
+    "message": "最近访问第 $NUMBER$ 个",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
   "pinnedSuffix": {
     "message": "，已固定"
   },
@@ -127,6 +159,14 @@
   },
   "recentSuffix": {
     "message": "，最近切换第 $NUMBER$ 个",
+    "placeholders": {
+      "number": {
+        "content": "$1"
+      }
+    }
+  },
+  "bookmarkRecentSuffix": {
+    "message": "，最近访问第 $NUMBER$ 个",
     "placeholders": {
       "number": {
         "content": "$1"

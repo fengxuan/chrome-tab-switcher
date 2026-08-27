@@ -17,6 +17,9 @@ const SWITCHER_MIN_HEIGHT = 260;
 const SMALL_WINDOW_TAB_LIMIT = 5;
 const MERGED_ROW_TAB_LIMIT = 10;
 const RECENT_TAB_LIMIT = 4;
+const BOOKMARK_RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const BOOKMARK_VISIT_DEBOUNCE_MS = 5000;
+const BOOKMARK_VISIT_STATS_KEY = "bookmarkVisitStats";
 const NATIVE_HOST_NAME = "com.local.chrometabswitcher.v2";
 const NATIVE_REQUEST_TIMEOUT_MS = 10000;
 const MAC_WINDOW_CACHE_TTL_MS = 2000;
@@ -40,6 +43,14 @@ let recentTabIds = [];
 let sessionStateLoaded = false;
 let sessionStateLoadPromise = null;
 let sessionStateWritePromise = Promise.resolve();
+let bookmarkVisitStats = new Map();
+let bookmarkVisitStatsLoaded = false;
+let bookmarkVisitStatsLoadPromise = null;
+let bookmarkVisitStatsWritePromise = Promise.resolve();
+let bookmarkUrlIndex = new Map();
+let bookmarkUrlIndexReady = false;
+let bookmarkUrlIndexLoadPromise = null;
+let bookmarkVisitPromise = Promise.resolve();
 let switcherWindowStateResolved = false;
 let openSwitcherPromise = null;
 let tabsChangedTimer = null;
@@ -186,6 +197,120 @@ async function saveSessionState() {
     .catch(() => {})
     .then(() => chrome.storage.session.set(state));
   await sessionStateWritePromise.catch(() => {});
+}
+
+async function loadBookmarkVisitStats() {
+  if (bookmarkVisitStatsLoaded) return;
+  if (!bookmarkVisitStatsLoadPromise) {
+    bookmarkVisitStatsLoadPromise = (async () => {
+      const state = chrome.storage?.local
+        ? await chrome.storage.local.get(BOOKMARK_VISIT_STATS_KEY).catch(() => null)
+        : null;
+      const stats = state?.[BOOKMARK_VISIT_STATS_KEY];
+      if (!stats || typeof stats !== "object") return;
+
+      bookmarkVisitStats = new Map(
+        Object.entries(stats)
+          .map(([bookmarkId, value]) => {
+            const lastVisitedAt = Number(value?.lastVisitedAt);
+            const visitCount = Number(value?.visitCount);
+            if (!Number.isFinite(lastVisitedAt) || lastVisitedAt <= 0
+              || !Number.isInteger(visitCount) || visitCount <= 0) {
+              return null;
+            }
+            return [bookmarkId, { lastVisitedAt, visitCount }];
+          })
+          .filter(Boolean)
+      );
+    })().finally(() => {
+      bookmarkVisitStatsLoaded = true;
+      bookmarkVisitStatsLoadPromise = null;
+    });
+  }
+  await bookmarkVisitStatsLoadPromise;
+}
+
+async function saveBookmarkVisitStats() {
+  if (!chrome.storage?.local) return;
+  const serialized = Object.fromEntries(bookmarkVisitStats);
+  bookmarkVisitStatsWritePromise = bookmarkVisitStatsWritePromise
+    .catch(() => {})
+    .then(() => chrome.storage.local.set({
+      [BOOKMARK_VISIT_STATS_KEY]: serialized
+    }));
+  await bookmarkVisitStatsWritePromise.catch(() => {});
+}
+
+function invalidateBookmarkUrlIndex() {
+  bookmarkUrlIndex = new Map();
+  bookmarkUrlIndexReady = false;
+}
+
+async function loadBookmarkUrlIndex() {
+  if (bookmarkUrlIndexReady) return bookmarkUrlIndex;
+  if (!bookmarkUrlIndexLoadPromise) {
+    bookmarkUrlIndexLoadPromise = chrome.bookmarks.getTree()
+      .catch(() => [])
+      .then((bookmarkTree) => {
+        const nextIndex = new Map();
+        const visit = (node) => {
+          if (node.url) {
+            const bookmarkIds = nextIndex.get(node.url) || [];
+            bookmarkIds.push(node.id);
+            nextIndex.set(node.url, bookmarkIds);
+            return;
+          }
+          (node.children || []).forEach(visit);
+        };
+        bookmarkTree.forEach(visit);
+        bookmarkUrlIndex = nextIndex;
+        bookmarkUrlIndexReady = true;
+        return bookmarkUrlIndex;
+      })
+      .finally(() => {
+        bookmarkUrlIndexLoadPromise = null;
+      });
+  }
+  return bookmarkUrlIndexLoadPromise;
+}
+
+async function rememberBookmarkVisitInternal(url) {
+  if (!url) return;
+
+  const bookmarkIds = (await loadBookmarkUrlIndex()).get(url) || [];
+  if (!bookmarkIds.length) return;
+
+  await loadBookmarkVisitStats();
+  const now = Date.now();
+  let changed = false;
+  bookmarkIds.forEach((bookmarkId) => {
+    const previous = bookmarkVisitStats.get(bookmarkId);
+    if (previous && now - previous.lastVisitedAt < BOOKMARK_VISIT_DEBOUNCE_MS) {
+      return;
+    }
+    bookmarkVisitStats.set(bookmarkId, {
+      lastVisitedAt: now,
+      visitCount: (previous?.visitCount || 0) + 1
+    });
+    changed = true;
+  });
+
+  if (!changed) return;
+  await saveBookmarkVisitStats();
+  notifyTabsChanged();
+}
+
+function rememberBookmarkVisit(url) {
+  bookmarkVisitPromise = bookmarkVisitPromise
+    .catch(() => {})
+    .then(() => rememberBookmarkVisitInternal(url));
+  return bookmarkVisitPromise.catch(() => {});
+}
+
+async function rememberBookmarkVisitForTab(tabId) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || isExtensionPage(tabUrl(tab))) return;
+  await rememberBookmarkVisit(tabUrl(tab));
 }
 
 async function clearSessionState() {
@@ -594,6 +719,17 @@ function bookmarkFolderLabel(folderNames) {
   return isGarbledBookmarkName(lastName) ? "" : lastName.trim();
 }
 
+function compareBookmarkTabs(first, second) {
+  const lastVisitedDifference = (second.bookmarkLastVisitedAt || 0)
+    - (first.bookmarkLastVisitedAt || 0);
+  if (lastVisitedDifference !== 0) return lastVisitedDifference;
+
+  const visitCountDifference = (second.bookmarkVisitCount || 0)
+    - (first.bookmarkVisitCount || 0);
+  if (visitCountDifference !== 0) return visitCountDifference;
+  return first.index - second.index;
+}
+
 function normalizeBookmarkGroups(bookmarkTree, faviconByUrl = new Map()) {
   const groups = new Map();
 
@@ -613,6 +749,7 @@ function normalizeBookmarkGroups(bookmarkTree, faviconByUrl = new Map()) {
       }
 
       const url = tabUrl(node);
+      const visitStats = bookmarkVisitStats.get(node.id);
       groups.get(groupKey).tabs.push({
         id: `bookmark-${node.id}`,
         bookmarkId: node.id,
@@ -632,6 +769,9 @@ function normalizeBookmarkGroups(bookmarkTree, faviconByUrl = new Map()) {
         pinned: false,
         audible: false,
         recentRank: 0,
+        bookmarkRecentRank: 0,
+        bookmarkLastVisitedAt: visitStats?.lastVisitedAt || 0,
+        bookmarkVisitCount: visitStats?.visitCount || 0,
         windowLabel: label
       });
       return;
@@ -653,7 +793,24 @@ function normalizeBookmarkGroups(bookmarkTree, faviconByUrl = new Map()) {
   }
 
   (bookmarkTree || []).forEach((root) => visit(root));
-  return [...groups.values()];
+  const recentBookmarkTabs = [...groups.values()]
+    .flatMap((group) => group.tabs)
+    .filter((tab) => tab.bookmarkLastVisitedAt
+      && Date.now() - tab.bookmarkLastVisitedAt <= BOOKMARK_RECENT_WINDOW_MS)
+    .sort(compareBookmarkTabs);
+  const recentRankByBookmarkId = new Map(
+    recentBookmarkTabs.map((tab, index) => [tab.bookmarkId, index + 1])
+  );
+
+  return [...groups.values()].map((group) => ({
+    ...group,
+    tabs: [...group.tabs]
+      .sort(compareBookmarkTabs)
+      .map((tab) => ({
+        ...tab,
+        bookmarkRecentRank: recentRankByBookmarkId.get(tab.bookmarkId) || 0
+      }))
+  }));
 }
 
 function getContentHeight(windowCount) {
@@ -716,6 +873,7 @@ async function getState() {
     chrome.windows.getAll({ populate: true }),
     chrome.bookmarks.getTree().catch(() => [])
   ]);
+  await loadBookmarkVisitStats();
   const {
     windows: macWindows,
     macWindowState
@@ -819,16 +977,23 @@ function requestSwitcherResize(contentHeight, frameHeight) {
   })().catch(() => {});
 }
 
-async function toggleSwitcherInternal({ favoritesOnly = false } = {}) {
+async function toggleSwitcherInternal({
+  favoritesOnly = false,
+  nativeAppsOnly = false,
+  view = ""
+} = {}) {
+  const requestedView = view || (nativeAppsOnly
+    ? "apps"
+    : (favoritesOnly ? "favorites" : "all"));
   const existingWindowIds = await findSwitcherWindowIds();
   if (existingWindowIds.length > 0) {
     switcherWindowId = existingWindowIds[0];
-    if (favoritesOnly) {
+    if (requestedView !== "all") {
       await chrome.windows.update(switcherWindowId, { focused: true })
         .catch(() => {});
       chrome.runtime.sendMessage({
         type: "SET_VIEW",
-        favoritesOnly: true
+        view: requestedView
       }).catch(() => {});
       return;
     }
@@ -849,7 +1014,9 @@ async function toggleSwitcherInternal({ favoritesOnly = false } = {}) {
   const windows = normalizeWindows(allWindows);
   const size = getPopupSize(windows, currentWindow);
   const createOptions = {
-    url: favoritesOnly ? `${SWITCHER_URL}?view=favorites` : SWITCHER_URL,
+    url: requestedView === "all"
+      ? SWITCHER_URL
+      : `${SWITCHER_URL}?view=${requestedView}`,
     type: "popup",
     focused: true,
     width: size.width,
@@ -971,6 +1138,10 @@ function getBookmarkFavicon(url) {
 async function openBookmark(url) {
   if (!url) return;
 
+  // The click itself is a visit, even when the page is already open or the
+  // target has to be opened in a new tab.
+  rememberBookmarkVisit(url);
+
   const allWindows = await chrome.windows.getAll({ populate: true });
   const matchingTab = allWindows
     .filter((window) => window.id !== switcherWindowId)
@@ -1061,12 +1232,14 @@ function notifyTabsChanged() {
 chrome.commands.onCommand.addListener((command) => {
   if (command === "open-tab-switcher") toggleSwitcher();
   if (command === "open-favorites") toggleSwitcher({ favoritesOnly: true });
+  if (command === "open-native-apps") toggleSwitcher({ nativeAppsOnly: true });
 });
 
 chrome.action.onClicked.addListener(() => toggleSwitcher());
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   rememberRecentTab(tabId, windowId);
+  rememberBookmarkVisitForTab(tabId);
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -1148,6 +1321,7 @@ chrome.tabs.onReplaced.addListener((_addedTabId, removedTabId) => {
   notifyTabsChanged();
 });
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if ("url" in changeInfo) rememberBookmarkVisitForTab(tabId);
   if (["title", "url", "favIconUrl", "audible", "pinned"].some((key) =>
     key in changeInfo
   )) {
@@ -1155,11 +1329,16 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   }
 });
 
-chrome.bookmarks.onCreated.addListener(notifyTabsChanged);
-chrome.bookmarks.onRemoved.addListener(notifyTabsChanged);
-chrome.bookmarks.onChanged.addListener(notifyTabsChanged);
-chrome.bookmarks.onMoved.addListener(notifyTabsChanged);
-chrome.bookmarks.onChildrenReordered.addListener(notifyTabsChanged);
+function notifyBookmarksChanged() {
+  invalidateBookmarkUrlIndex();
+  notifyTabsChanged();
+}
+
+chrome.bookmarks.onCreated.addListener(notifyBookmarksChanged);
+chrome.bookmarks.onRemoved.addListener(notifyBookmarksChanged);
+chrome.bookmarks.onChanged.addListener(notifyBookmarksChanged);
+chrome.bookmarks.onMoved.addListener(notifyBookmarksChanged);
+chrome.bookmarks.onChildrenReordered.addListener(notifyBookmarksChanged);
 
 chrome.windows.onCreated.addListener(notifyTabsChanged);
 

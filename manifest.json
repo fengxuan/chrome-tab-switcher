@@ -27,6 +27,13 @@
         "mac": "Command+Shift+F"
       },
       "description": "__MSG_favoritesCommandDescription__"
+    },
+    "open-native-apps": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+A",
+        "mac": "Command+Shift+A"
+      },
+      "description": "__MSG_nativeAppsCommandDescription__"
     }
   }
 }
