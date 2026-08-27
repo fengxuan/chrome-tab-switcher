@@ -820,7 +820,11 @@ function updateNativeStatus(state) {
   const isMac = /Mac|iPhone|iPad|iPod/u.test(
     `${navigator.platform || ""} ${navigator.userAgent || ""}`
   );
-  if (!isMac || !state || (state.available && state.accessibilityTrusted)) {
+  // The Native Messaging host is a short-lived child process, so its own
+  // AXIsProcessTrusted() result does not represent the long-running menu bar
+  // app that owns the Accessibility permission. A connected host is enough
+  // to show the macOS windows; only an unavailable host should be reported.
+  if (!isMac || !state || state.available) {
     elements.nativeStatus.hidden = true;
     elements.nativeStatus.textContent = "";
     return;
