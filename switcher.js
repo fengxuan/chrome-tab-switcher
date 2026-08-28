@@ -640,7 +640,7 @@ function getDisplayTitle(title = "") {
 }
 
 function getMacWindowDisplayTitle(title = "") {
-  return title.trim() || localizedMessage("untitledMacWindow", [], "未命名窗口");
+  return title.trim() || "macOS";
 }
 
 function createFavicon(tab) {

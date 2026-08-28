@@ -4,12 +4,13 @@ Chrome Tab Switcher 是一个本地运行的 Chrome 标签页和 macOS 窗口切
 
 - 在 Chrome 中集中查看多个窗口的标签页；
 - 在 macOS 上统一查看 Finder、Visual Studio Code、Terminal 等应用窗口；
+- 在 macOS 上通过独立的原生风格窗口切换器查看应用窗口；Chrome 默认折叠为一个代表窗口；
 - 支持搜索应用名、窗口标题、标签页标题、网址和中文拼音；
 - 收藏夹会记录本机观察到的访问次数，并优先显示最近访问的书签；
 - 支持鼠标、键盘和全局快捷键切换；
 - 所有标签页、窗口标题和网页内容只在本机处理。
 
-macOS 窗口功能由 Swift Helper 和 Chrome Native Messaging 提供。只想管理 Chrome 标签页时，不需要安装 macOS Helper。
+macOS 独立窗口切换器由 Swift Helper 提供；Chrome 扩展中的 macOS 窗口视图通过 Native Messaging 连接到 Helper。只想管理 Chrome 标签页时，不需要安装 macOS Helper。
 
 ## 系统要求
 
@@ -40,6 +41,7 @@ macOS 窗口功能由 Swift Helper 和 Chrome Native Messaging 提供。只想�
 - Windows/Linux：`Ctrl + Shift + Space`；
 - 收藏夹视图：macOS 使用 `Command + Shift + F`，Windows/Linux 使用 `Ctrl + Shift + F`。
 - 仅显示 macOS 原生应用：`Command + Shift + G`（Windows/Linux 为 `Ctrl + Shift + G`，无 macOS 应用时为空）。
+- macOS 原生窗口切换器：`Command + Option + Space`，直接显示所有应用窗口；Chrome 只显示一个代表窗口，其它应用的多个窗口会同时列出。
 
 如果 Chrome 提示快捷键已被占用，可以打开 `chrome://extensions/shortcuts` 修改快捷键。
 
@@ -116,13 +118,15 @@ macos/ChromeTabSwitcherHotKey/dist/Chrome Tab Switcher.app
 
 按 `Command + Shift + G` 可直接打开仅包含 macOS 原生应用窗口的视图。
 
+按 `Command + Option + Space` 可打开独立的 macOS 窗口切换器。它将窗口统一显示在网格中；Chrome 默认只保留一个代表窗口，其它应用的多个窗口会同时显示。使用方向键或 `Tab` 选择，按 `Enter` 激活，按 `Esc` 取消。
+
 macOS Helper 运行后会显示在菜单栏中。它需要保持运行，才能从其它应用监听全局快捷键和激活窗口。
 
 ## 快捷键同步
 
-扩展快捷键和 macOS Helper 中对应功能的快捷键必须一致。
+扩展快捷键和 macOS Helper 中对应的三个扩展功能快捷键必须一致；macOS 原生窗口切换器是 Helper 的独立功能。
 
-菜单栏 Helper 的“分别设置快捷键…”可以为普通切换器、收藏夹、原生应用三个功能分别录入快捷键。修改后，还需要在 `chrome://extensions/shortcuts` 中把“Chrome Tab Switcher”的三个命令分别改成相同组合。
+菜单栏 Helper 的“分别设置快捷键…”可以为普通切换器、收藏夹、原生应用和 macOS 窗口切换器四个功能分别录入快捷键。修改前三个功能后，还需要在 `chrome://extensions/shortcuts` 中把“Chrome Tab Switcher”的对应命令改成相同组合。
 
 ## 使用方式
 
@@ -141,6 +145,8 @@ macOS Helper 运行后会显示在菜单栏中。它需要保持运行，才能�
 - Chrome 标签页标题、网址和 Chrome 窗口；
 - macOS 应用名和窗口标题；
 - 中文完整拼音和拼音首字母。
+
+macOS 原生窗口切换器只显示当前屏幕可见窗口，不提供搜索或额外提示；窗口信息由 Helper 启动时预取，并在应用启动、退出、激活或切换桌面时更新。弹出切换器期间不会刷新列表或重置当前选择；激活具体窗口需要辅助功能权限。
 
 如果 Native Messaging host 未安装或辅助功能权限未开启，切换器会自动降级为只显示 Chrome 标签页。
 

@@ -297,6 +297,10 @@ kbd {
   gap: 6px;
 }
 
+#window-groups > .window-section.is-bookmark-group > .cards {
+  flex: 1 1 auto;
+}
+
 .bookmark-group-label::before {
   content: "★";
   color: var(--selected-border);

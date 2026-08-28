@@ -645,11 +645,7 @@ function normalizeMacWindows(macWindows = []) {
       });
     }
 
-    const nativeTitle = window.title || window.appName || localizedMessage(
-      "untitledMacWindow",
-      [],
-      "未命名窗口"
-    );
+    const nativeTitle = window.title || window.appName || "macOS";
     groups.get(groupKey).tabs.push({
       id: window.id,
       kind: "mac-window",
