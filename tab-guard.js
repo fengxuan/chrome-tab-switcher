@@ -43,10 +43,14 @@
     const changedForm = editableControls.some((control) =>
       valueOf(control) !== baselineValues.get(control)
     );
-    chrome.runtime.sendMessage({
-      type: "FORM_STATE",
-      protected: activeForm || changedForm
-    }).catch(() => {});
+    try {
+      chrome.runtime.sendMessage({
+        type: "FORM_STATE",
+        protected: activeForm || changedForm
+      }).catch(() => {});
+    } catch {
+      // The extension may be reloaded while this content script is still alive.
+    }
   }
 
   function attachListeners() {

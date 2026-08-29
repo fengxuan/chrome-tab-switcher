@@ -1735,17 +1735,26 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message?.type === "TABS_CHANGED") scheduleRefresh();
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  let handled = false;
+  if (message?.type === "TABS_CHANGED") {
+    scheduleRefresh();
+    handled = true;
+  }
   if (message?.type === "OPEN_SMART_SLEEP_SETTINGS") {
     setSmartSleepPanelOpen(true);
+    handled = true;
   }
   if (message?.type === "MAC_WINDOWS_UPDATED") {
     updateMacWindows(message.windows, message.macWindowState);
+    handled = true;
   }
   if (message?.type === "SET_VIEW") {
     setView(message.view || (message.favoritesOnly ? "favorites" : "all"));
+    handled = true;
   }
+  if (handled) sendResponse({ ok: true });
+  return false;
 });
 
 function visualCardRows() {

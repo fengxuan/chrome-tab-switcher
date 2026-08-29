@@ -48,6 +48,8 @@ const SESSION_STATE_KEYS = [
   "recentTabIds"
 ];
 const TABS_CHANGED_DEBOUNCE_MS = 100;
+const SWITCHER_COMMAND_RETRY_COUNT = 20;
+const SWITCHER_COMMAND_RETRY_DELAY_MS = 50;
 
 let switcherWindowId = null;
 let sourceWindowId = null;
@@ -752,6 +754,44 @@ async function sendToSwitcher(message) {
   const windowId = await getSwitcherWindowId();
   if (windowId === null) return;
   chrome.runtime.sendMessage(message).catch(() => {});
+}
+
+function switcherURLForView(view = "all", openSmartSleepSettings = false) {
+  const baseURL = view === "all"
+    ? SWITCHER_URL
+    : `${SWITCHER_URL}?view=${view}`;
+  if (!openSmartSleepSettings) return baseURL;
+  return `${baseURL}${baseURL.includes("?") ? "&" : "?"}settings=smart-sleep`;
+}
+
+async function sendSwitcherCommand(message) {
+  for (let attempt = 0; attempt < SWITCHER_COMMAND_RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await chrome.runtime.sendMessage(message);
+      if (response?.ok) return true;
+    } catch {
+      // The switcher page may still be loading. Retry below.
+    }
+
+    if (attempt + 1 < SWITCHER_COMMAND_RETRY_COUNT) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, SWITCHER_COMMAND_RETRY_DELAY_MS);
+      });
+    }
+  }
+  return false;
+}
+
+async function navigateSwitcherToView(window, view, openSmartSleepSettings = false) {
+  const switcherTab = (window?.tabs || []).find((tab) =>
+    isSwitcherPage(tabUrl(tab))
+  );
+  if (!Number.isInteger(switcherTab?.id)) return false;
+
+  await chrome.tabs.update(switcherTab.id, {
+    url: switcherURLForView(view, openSmartSleepSettings)
+  }).catch(() => {});
+  return true;
 }
 
 let inputSourceChangePromise = null;
@@ -1476,15 +1516,21 @@ async function toggleSwitcherInternal({
     if (openSmartSleepSettings || requestedView !== "all" || currentView !== "all") {
       await chrome.windows.update(switcherWindowId, { focused: true })
         .catch(() => {});
-      if (openSmartSleepSettings) {
-        chrome.runtime.sendMessage({
+      const message = openSmartSleepSettings
+        ? {
           type: "OPEN_SMART_SLEEP_SETTINGS"
-        }).catch(() => {});
-      } else {
-        chrome.runtime.sendMessage({
+        }
+        : {
           type: "SET_VIEW",
           view: requestedView
-        }).catch(() => {});
+        };
+      const delivered = await sendSwitcherCommand(message);
+      if (!delivered) {
+        await navigateSwitcherToView(
+          existingWindow,
+          requestedView,
+          openSmartSleepSettings
+        );
       }
       selectEnglishInputSource();
       return;
@@ -1506,13 +1552,8 @@ async function toggleSwitcherInternal({
   const allWindows = await chrome.windows.getAll({ populate: true });
   const windows = normalizeWindows(allWindows);
   const size = getPopupSize(windows, currentWindow);
-  const switcherURL = requestedView === "all"
-    ? SWITCHER_URL
-    : `${SWITCHER_URL}?view=${requestedView}`;
   const createOptions = {
-    url: openSmartSleepSettings
-      ? `${switcherURL}${switcherURL.includes("?") ? "&" : "?"}settings=smart-sleep`
-      : switcherURL,
+    url: switcherURLForView(requestedView, openSmartSleepSettings),
     type: "popup",
     focused: true,
     width: size.width,
