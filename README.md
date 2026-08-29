@@ -44,7 +44,7 @@ macOS 独立窗口切换器由 Swift Helper 提供；Chrome 扩展中的 macOS �
 - 收藏夹视图：macOS 使用 `Command + Shift + F`，Windows/Linux 使用 `Ctrl + Shift + F`。
 - 仅显示 macOS 原生应用：`Command + Shift + G`（Windows/Linux 为 `Ctrl + Shift + G`，无 macOS 应用时为空）。
 - macOS 原生窗口切换器：`Command + Option + Space`，直接显示所有应用窗口；Chrome 只显示一个代表窗口，其它应用的多个窗口会同时列出。
-- 智能休眠设置：`Command + Option + S`（Windows/Linux 为 `Ctrl + Alt + S`）。
+- 智能休眠设置：`Command + Shift + S`（Windows/Linux 为 `Ctrl + Shift + S`）。
 
 如果 Chrome 提示快捷键已被占用，可以打开 `chrome://extensions/shortcuts` 修改快捷键。
 
