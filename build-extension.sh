@@ -30,6 +30,7 @@ cd "$SCRIPT_DIR"
 
 node --check background.js
 node --check switcher.js
+node --check tab-guard.js
 node -e 'JSON.parse(require("fs").readFileSync("manifest.json", "utf8"))'
 
 required_files=(
@@ -38,6 +39,7 @@ required_files=(
   switcher.html
   switcher.css
   switcher.js
+  tab-guard.js
 )
 
 for file in "${required_files[@]}"; do

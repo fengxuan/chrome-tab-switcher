@@ -20,6 +20,18 @@ const RECENT_TAB_LIMIT = 4;
 const BOOKMARK_RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 const BOOKMARK_VISIT_DEBOUNCE_MS = 5000;
 const BOOKMARK_VISIT_STATS_KEY = "bookmarkVisitStats";
+const TAB_HISTORY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const TAB_HISTORY_LIMIT = 100;
+const TAB_HISTORY_VISIT_DEBOUNCE_MS = 3000;
+const TAB_HISTORY_KEY = "tabVisitHistory";
+const SMART_SLEEP_SETTINGS_KEY = "smartSleepSettings";
+const SMART_SLEEP_ALARM_NAME = "smart-sleep-scan";
+const SMART_SLEEP_SCAN_PERIOD_MINUTES = 5;
+const SMART_SLEEP_IDLE_OPTIONS = [30, 60, 120, 240, 480];
+const DEFAULT_SMART_SLEEP_SETTINGS = {
+  enabled: false,
+  idleMinutes: 60
+};
 const NATIVE_HOST_NAME = "com.local.chrometabswitcher.v2";
 const NATIVE_REQUEST_TIMEOUT_MS = 10000;
 const MAC_WINDOW_CACHE_TTL_MS = 2000;
@@ -51,6 +63,17 @@ let bookmarkUrlIndex = new Map();
 let bookmarkUrlIndexReady = false;
 let bookmarkUrlIndexLoadPromise = null;
 let bookmarkVisitPromise = Promise.resolve();
+let tabVisitHistory = [];
+let tabVisitHistoryLoaded = false;
+let tabVisitHistoryLoadPromise = null;
+let tabVisitHistoryWritePromise = Promise.resolve();
+let tabHistoryVisitPromise = Promise.resolve();
+let smartSleepSettings = { ...DEFAULT_SMART_SLEEP_SETTINGS };
+let smartSleepSettingsLoaded = false;
+let smartSleepSettingsLoadPromise = null;
+let smartSleepSettingsWritePromise = Promise.resolve();
+let smartSleepScanPromise = null;
+const tabFormStates = new Map();
 const pendingBookmarkRemovals = new Set();
 let switcherWindowStateResolved = false;
 let openSwitcherPromise = null;
@@ -242,6 +265,153 @@ async function saveBookmarkVisitStats() {
   await bookmarkVisitStatsWritePromise.catch(() => {});
 }
 
+function normalizeTabVisitHistory(entries = []) {
+  const now = Date.now();
+  const byUrl = new Map();
+  if (!Array.isArray(entries)) return [];
+
+  entries.forEach((entry) => {
+    const url = String(entry?.url || "");
+    const lastVisitedAt = Number(entry?.lastVisitedAt);
+    const visitCount = Number(entry?.visitCount);
+    if (!isHttpUrl(url)
+      || !Number.isFinite(lastVisitedAt)
+      || lastVisitedAt <= 0
+      || now - lastVisitedAt > TAB_HISTORY_WINDOW_MS
+      || !Number.isInteger(visitCount)
+      || visitCount <= 0) {
+      return;
+    }
+
+    const previous = byUrl.get(url);
+    if (!previous || lastVisitedAt > previous.lastVisitedAt) {
+      byUrl.set(url, {
+        url,
+        title: String(entry?.title || url),
+        favIconUrl: String(entry?.favIconUrl || ""),
+        lastVisitedAt,
+        visitCount: previous
+          ? Math.max(previous.visitCount, visitCount)
+          : visitCount
+      });
+    }
+  });
+
+  return [...byUrl.values()]
+    .sort((first, second) => second.lastVisitedAt - first.lastVisitedAt)
+    .slice(0, TAB_HISTORY_LIMIT);
+}
+
+async function loadTabVisitHistory() {
+  if (tabVisitHistoryLoaded) return tabVisitHistory;
+  if (!tabVisitHistoryLoadPromise) {
+    tabVisitHistoryLoadPromise = (async () => {
+      const state = chrome.storage?.local
+        ? await chrome.storage.local.get(TAB_HISTORY_KEY).catch(() => null)
+        : null;
+      const rawHistory = state?.[TAB_HISTORY_KEY];
+      tabVisitHistory = normalizeTabVisitHistory(rawHistory);
+      if (rawHistory !== undefined
+        && JSON.stringify(rawHistory) !== JSON.stringify(tabVisitHistory)) {
+        await saveTabVisitHistory();
+      }
+    })().finally(() => {
+      tabVisitHistoryLoaded = true;
+      tabVisitHistoryLoadPromise = null;
+    });
+  }
+  await tabVisitHistoryLoadPromise;
+  return tabVisitHistory;
+}
+
+function pruneTabVisitHistory(now = Date.now()) {
+  const nextHistory = tabVisitHistory
+    .filter((entry) => now - entry.lastVisitedAt <= TAB_HISTORY_WINDOW_MS)
+    .sort((first, second) => second.lastVisitedAt - first.lastVisitedAt)
+    .slice(0, TAB_HISTORY_LIMIT);
+  const changed = nextHistory.length !== tabVisitHistory.length
+    || nextHistory.some((entry, index) => entry !== tabVisitHistory[index]);
+  tabVisitHistory = nextHistory;
+  return changed;
+}
+
+async function saveTabVisitHistory() {
+  if (!chrome.storage?.local) return;
+  pruneTabVisitHistory();
+  tabVisitHistoryWritePromise = tabVisitHistoryWritePromise
+    .catch(() => {})
+    .then(() => chrome.storage.local.set({
+      [TAB_HISTORY_KEY]: tabVisitHistory
+    }));
+  await tabVisitHistoryWritePromise.catch(() => {});
+}
+
+async function rememberTabVisitInternal(tab, { countVisit = true } = {}) {
+  const url = tabUrl(tab);
+  if (!tab || !isHttpUrl(url) || isExtensionPage(url) || isBlankTab(tab)) {
+    return;
+  }
+
+  await loadTabVisitHistory();
+  const now = Date.now();
+  const wasPruned = pruneTabVisitHistory(now);
+  const previous = tabVisitHistory.find((entry) => entry.url === url);
+  if (!countVisit && !previous) {
+    if (wasPruned) await saveTabVisitHistory();
+    return;
+  }
+  const isDebounced = countVisit
+    && previous
+    && now - previous.lastVisitedAt < TAB_HISTORY_VISIT_DEBOUNCE_MS;
+  const nextEntry = {
+    url,
+    title: tab.title || previous?.title || url,
+    favIconUrl: tab.favIconUrl || previous?.favIconUrl || "",
+    lastVisitedAt: isDebounced ? previous.lastVisitedAt : now,
+    visitCount: isDebounced
+      ? previous.visitCount
+      : (previous?.visitCount || 0) + (countVisit ? 1 : 0)
+  };
+
+  if (previous
+    && previous.title === nextEntry.title
+    && previous.favIconUrl === nextEntry.favIconUrl
+    && previous.lastVisitedAt === nextEntry.lastVisitedAt
+    && previous.visitCount === nextEntry.visitCount) {
+    if (wasPruned) await saveTabVisitHistory();
+    return;
+  }
+
+  tabVisitHistory = [
+    nextEntry,
+    ...tabVisitHistory.filter((entry) => entry.url !== url)
+  ];
+  await saveTabVisitHistory();
+  notifyTabsChanged();
+}
+
+function rememberTabVisit(tabId) {
+  tabHistoryVisitPromise = tabHistoryVisitPromise
+    .catch(() => {})
+    .then(async () => {
+      const tab = await chrome.tabs.get(tabId).catch(() => null);
+      if (!tab || tab.windowId === switcherWindowId) return;
+      await rememberTabVisitInternal(tab);
+    });
+  return tabHistoryVisitPromise.catch(() => {});
+}
+
+function updateTabHistoryMetadata(tabId) {
+  tabHistoryVisitPromise = tabHistoryVisitPromise
+    .catch(() => {})
+    .then(async () => {
+      const tab = await chrome.tabs.get(tabId).catch(() => null);
+      if (!tab || tab.windowId === switcherWindowId) return;
+      await rememberTabVisitInternal(tab, { countVisit: false });
+    });
+  return tabHistoryVisitPromise.catch(() => {});
+}
+
 function invalidateBookmarkUrlIndex() {
   bookmarkUrlIndex = new Map();
   bookmarkUrlIndexReady = false;
@@ -312,6 +482,188 @@ async function rememberBookmarkVisitForTab(tabId) {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (!tab || isExtensionPage(tabUrl(tab))) return;
   await rememberBookmarkVisit(tabUrl(tab));
+}
+
+function normalizeSmartSleepSettings(settings = {}) {
+  if (!settings || typeof settings !== "object") settings = {};
+  const idleMinutes = Number(settings.idleMinutes);
+  return {
+    enabled: Boolean(settings.enabled),
+    idleMinutes: SMART_SLEEP_IDLE_OPTIONS.includes(idleMinutes)
+      ? idleMinutes
+      : DEFAULT_SMART_SLEEP_SETTINGS.idleMinutes
+  };
+}
+
+async function loadSmartSleepSettings() {
+  if (smartSleepSettingsLoaded) return smartSleepSettings;
+  if (!smartSleepSettingsLoadPromise) {
+    smartSleepSettingsLoadPromise = (async () => {
+      if (!chrome.storage?.local) return;
+      const state = await chrome.storage.local.get(SMART_SLEEP_SETTINGS_KEY)
+        .catch(() => null);
+      smartSleepSettings = normalizeSmartSleepSettings(
+        state?.[SMART_SLEEP_SETTINGS_KEY]
+      );
+    })().finally(() => {
+      smartSleepSettingsLoaded = true;
+      smartSleepSettingsLoadPromise = null;
+    });
+  }
+  await smartSleepSettingsLoadPromise;
+  return smartSleepSettings;
+}
+
+async function saveSmartSleepSettings() {
+  if (!chrome.storage?.local) return;
+  smartSleepSettingsWritePromise = smartSleepSettingsWritePromise
+    .catch(() => {})
+    .then(() => chrome.storage.local.set({
+      [SMART_SLEEP_SETTINGS_KEY]: smartSleepSettings
+    }));
+  await smartSleepSettingsWritePromise.catch(() => {});
+}
+
+function scheduleSmartSleepAlarm() {
+  if (!chrome.alarms) return;
+
+  if (!smartSleepSettings.enabled) {
+    chrome.alarms.clear(SMART_SLEEP_ALARM_NAME).catch(() => {});
+    return;
+  }
+
+  chrome.alarms.create(SMART_SLEEP_ALARM_NAME, {
+    delayInMinutes: 1,
+    periodInMinutes: SMART_SLEEP_SCAN_PERIOD_MINUTES
+  });
+}
+
+async function setSmartSleepSettings(settings = {}) {
+  await loadSmartSleepSettings();
+  smartSleepSettings = normalizeSmartSleepSettings({
+    ...smartSleepSettings,
+    ...settings
+  });
+  await saveSmartSleepSettings();
+  scheduleSmartSleepAlarm();
+  if (smartSleepSettings.enabled) runSmartSleepScan().catch(() => {});
+  notifyTabsChanged();
+  return smartSleepSettings;
+}
+
+function setTabFormState(tabId, frameId, isProtected) {
+  if (!Number.isInteger(tabId)) return;
+  if (!tabFormStates.has(tabId)) tabFormStates.set(tabId, new Map());
+  tabFormStates.get(tabId).set(frameId, {
+    protected: Boolean(isProtected),
+    updatedAt: Date.now()
+  });
+}
+
+function clearTabFormState(tabId) {
+  if (Number.isInteger(tabId)) tabFormStates.delete(tabId);
+}
+
+function hasProtectedFormState(tabId) {
+  const states = tabFormStates.get(tabId);
+  return Boolean(states && [...states.values()].some((state) => state.protected));
+}
+
+async function inspectTabFormState(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      func: () => {
+        const editableSelector = [
+          "input",
+          "textarea",
+          "select",
+          "[contenteditable]:not([contenteditable=\"false\"])",
+          "[role=\"textbox\"]"
+        ].join(",");
+        const controls = [...document.querySelectorAll(editableSelector)];
+        const isChanged = (control) => {
+          if (control instanceof HTMLInputElement) {
+            if (["button", "image", "reset", "submit"].includes(control.type)) {
+              return false;
+            }
+            if (["checkbox", "radio"].includes(control.type)) {
+              return control.checked !== control.defaultChecked;
+            }
+            return Boolean(control.files?.length) || control.value !== control.defaultValue;
+          }
+          if (control instanceof HTMLTextAreaElement) {
+            return control.value !== control.defaultValue;
+          }
+          if (control instanceof HTMLSelectElement) {
+            return [...control.options].some((option) =>
+              option.selected !== option.defaultSelected
+            );
+          }
+          return Boolean(control.textContent?.trim());
+        };
+        const activeElement = document.activeElement;
+        const activeForm = document.hasFocus()
+          && controls.some((control) => control === activeElement);
+        return {
+          protected: activeForm || controls.some(isChanged)
+        };
+      }
+    });
+    if (!results?.length) return true;
+    const isProtected = results.some((result) => result?.result?.protected);
+    setTabFormState(tabId, -1, isProtected);
+    return isProtected;
+  } catch {
+    // Restricted pages and pages without host access are safer to leave alone.
+    return true;
+  }
+}
+
+function isSmartSleepCandidate(tab, now, idleMilliseconds) {
+  const url = tabUrl(tab);
+  return tab.id !== undefined
+    && !tab.active
+    && !tab.pinned
+    && !tab.audible
+    && !tab.discarded
+    && tab.autoDiscardable !== false
+    && tab.status !== "loading"
+    && !isExtensionPage(url)
+    && !isBlankTab(tab)
+    && isHttpUrl(url)
+    && Number.isFinite(tab.lastAccessed)
+    && now - tab.lastAccessed >= idleMilliseconds;
+}
+
+async function runSmartSleepScan() {
+  if (smartSleepScanPromise) return smartSleepScanPromise;
+  smartSleepScanPromise = (async () => {
+    await loadSmartSleepSettings();
+    if (!smartSleepSettings.enabled) return;
+
+    const now = Date.now();
+    const idleMilliseconds = smartSleepSettings.idleMinutes * 60 * 1000;
+    const allWindows = await chrome.windows.getAll({ populate: true });
+    const candidates = allWindows
+      .filter((window) =>
+        window.id !== switcherWindowId && VISIBLE_WINDOW_TYPES.has(window.type)
+      )
+      .flatMap((window) => window.tabs || [])
+      .filter((tab) => isSmartSleepCandidate(tab, now, idleMilliseconds));
+
+    let discardedCount = 0;
+    for (const tab of candidates) {
+      if (hasProtectedFormState(tab.id)) continue;
+      if (await inspectTabFormState(tab.id)) continue;
+      const discarded = await chrome.tabs.discard(tab.id).catch(() => null);
+      if (discarded) discardedCount += 1;
+    }
+    if (discardedCount) notifyTabsChanged();
+  })().finally(() => {
+    smartSleepScanPromise = null;
+  });
+  return smartSleepScanPromise;
 }
 
 async function clearSessionState() {
@@ -500,7 +852,20 @@ function tabHost(url = "") {
   }
 }
 
-function normalizeTab(tab, windowLabel, windowId) {
+function collectBookmarkUrls(bookmarkTree = []) {
+  const urls = new Set();
+  const visit = (node) => {
+    if (node?.url) {
+      urls.add(node.url);
+      return;
+    }
+    (node?.children || []).forEach(visit);
+  };
+  bookmarkTree.forEach(visit);
+  return urls;
+}
+
+function normalizeTab(tab, windowLabel, windowId, bookmarkUrls = new Set()) {
   const url = tabUrl(tab);
   const recentIndex = recentTabIds.indexOf(tab.id);
   return {
@@ -513,6 +878,9 @@ function normalizeTab(tab, windowLabel, windowId) {
     favIconUrl: tab.favIconUrl || "",
     pinned: Boolean(tab.pinned),
     audible: Boolean(tab.audible),
+    sleeping: Boolean(tab.discarded),
+    canBookmark: isHttpUrl(url),
+    isBookmarked: bookmarkUrls.has(url),
     recentRank: recentIndex >= 0 ? recentIndex + 1 : 0,
     windowLabel
   };
@@ -528,6 +896,14 @@ function isBlankTab(tab) {
     "chrome://new-tab-page",
     "chrome://new-tab-page/"
   ].includes(url);
+}
+
+function isHttpUrl(url = "") {
+  try {
+    return /^https?:$/u.test(new URL(url).protocol);
+  } catch {
+    return false;
+  }
 }
 
 function usableWindows(allWindows) {
@@ -583,13 +959,18 @@ function sortWindows(allWindows) {
   });
 }
 
-function normalizeWindows(allWindows) {
+function normalizeWindows(allWindows, bookmarkUrls = new Set()) {
   let blankWindowIncluded = false;
   const windows = sortWindows(usableWindows(allWindows)).map((window) => {
     const rawTabs = (window.tabs || [])
       .filter((tab) => tab.id !== undefined && !isExtensionPage(tabUrl(tab)))
       .sort(compareTabs)
-    const tabs = rawTabs.map((tab) => normalizeTab(tab, "", window.id));
+    const tabs = rawTabs.map((tab) => normalizeTab(
+      tab,
+      "",
+      window.id,
+      bookmarkUrls
+    ));
 
     return {
       id: window.id,
@@ -824,6 +1205,36 @@ function normalizeBookmarkGroups(bookmarkTree, faviconByUrl = new Map()) {
   }));
 }
 
+function normalizeHistoryTabs(openUrls = new Set(), bookmarkUrls = new Set()) {
+  const groupLabel = localizedMessage(
+    "historyRecommendationLabel",
+    [],
+    "最近 7 天访问记录"
+  );
+  return tabVisitHistory
+    .filter((entry) => !openUrls.has(entry.url))
+    .map((entry) => ({
+      id: `history:${entry.url}`,
+      isHistory: true,
+      isBookmark: false,
+      windowId: null,
+      index: 0,
+      title: entry.title || entry.url,
+      url: entry.url,
+      host: tabHost(entry.url),
+      favIconUrl: entry.favIconUrl || "",
+      pinned: false,
+      audible: false,
+      sleeping: false,
+      canBookmark: isHttpUrl(entry.url),
+      isBookmarked: bookmarkUrls.has(entry.url),
+      recentRank: 0,
+      historyLastVisitedAt: entry.lastVisitedAt,
+      historyVisitCount: entry.visitCount,
+      windowLabel: groupLabel
+    }));
+}
+
 function getContentHeight(windowCount) {
   const groupGaps = Math.max(0, windowCount - 1) * WINDOW_ROW_GAP;
   const windowRows = windowCount * WINDOW_ROW_HEIGHT;
@@ -880,11 +1291,22 @@ function getDisplayRowStats(windows) {
 
 async function getState() {
   await getSwitcherWindowId();
+  await loadSmartSleepSettings();
   const [allWindows, bookmarkTree] = await Promise.all([
     chrome.windows.getAll({ populate: true }),
     chrome.bookmarks.getTree().catch(() => [])
   ]);
   await loadBookmarkVisitStats();
+  await loadTabVisitHistory();
+  if (pruneTabVisitHistory()) await saveTabVisitHistory();
+  const bookmarkUrls = collectBookmarkUrls(bookmarkTree);
+  const openUrls = new Set(
+    allWindows
+      .filter((window) => window.id !== switcherWindowId)
+      .flatMap((window) => window.tabs || [])
+      .map(tabUrl)
+      .filter((url) => url && !isExtensionPage(url))
+  );
   const {
     windows: macWindows,
     macWindowState
@@ -898,12 +1320,14 @@ async function getState() {
   });
   return {
     windows: [
-      ...normalizeWindows(allWindows),
+      ...normalizeWindows(allWindows, bookmarkUrls),
       ...normalizeMacWindows(macWindows)
     ],
     bookmarkGroups: normalizeBookmarkGroups(bookmarkTree, faviconByUrl),
+    historyTabs: normalizeHistoryTabs(openUrls, bookmarkUrls),
     sourceWindowId,
     sourceTabId,
+    smartSleep: smartSleepSettings,
     macWindowState
   };
 }
@@ -1024,6 +1448,7 @@ async function toggleSwitcherInternal({
     : await chrome.tabs.query({ active: true, windowId: sourceWindowId });
   sourceTabId = activeTabs[0]?.id ?? null;
   await rememberRecentTab(sourceTabId, sourceWindowId);
+  rememberTabVisit(sourceTabId);
 
   const allWindows = await chrome.windows.getAll({ populate: true });
   const windows = normalizeWindows(allWindows);
@@ -1150,12 +1575,8 @@ function getBookmarkFavicon(url) {
   return request;
 }
 
-async function openBookmark(url) {
+async function openUrl(url) {
   if (!url) return;
-
-  // The click itself is a visit, even when the page is already open or the
-  // target has to be opened in a new tab.
-  rememberBookmarkVisit(url);
 
   const allWindows = await chrome.windows.getAll({ populate: true });
   const matchingTab = allWindows
@@ -1195,6 +1616,37 @@ async function openBookmark(url) {
   }
 
   await closeSwitcherWindow();
+}
+
+async function openBookmark(url) {
+  if (!url) return;
+
+  // The click itself is a visit, even when the page is already open or the
+  // target has to be opened in a new tab.
+  rememberBookmarkVisit(url);
+  await openUrl(url);
+}
+
+async function openHistoryTab(url) {
+  if (!url || !isHttpUrl(url)) return;
+  await openUrl(url);
+}
+
+async function addBookmark(url, title = "") {
+  if (!url || !isHttpUrl(url)) {
+    throw new Error("Only HTTP and HTTPS tabs can be bookmarked");
+  }
+
+  const bookmarkIds = (await loadBookmarkUrlIndex()).get(url) || [];
+  if (bookmarkIds.length) return { created: false };
+
+  await chrome.bookmarks.create({
+    title: title || url,
+    url
+  });
+  invalidateBookmarkUrlIndex();
+  notifyTabsChanged();
+  return { created: true };
 }
 
 async function rememberRecentTab(tabId, windowId) {
@@ -1255,9 +1707,23 @@ chrome.action.onClicked.addListener(() => toggleSwitcher());
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   rememberRecentTab(tabId, windowId);
   rememberBookmarkVisitForTab(tabId);
+  rememberTabVisit(tabId);
+  notifyTabsChanged();
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "FORM_STATE") {
+    setTabFormState(sender.tab?.id, sender.frameId ?? 0, message.protected);
+    return false;
+  }
+
+  if (message?.type === "UPDATE_SMART_SLEEP_SETTINGS") {
+    setSmartSleepSettings(message.settings || {})
+      .then((settings) => sendResponse({ ok: true, settings }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message?.type === "GET_STATE") {
     getState()
       .then((state) => {
@@ -1303,6 +1769,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
+  if (message?.type === "OPEN_HISTORY_TAB") {
+    openHistoryTab(message.url);
+    return false;
+  }
+
+  if (message?.type === "ADD_BOOKMARK") {
+    addBookmark(message.url, message.title)
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message?.type === "REMOVE_BOOKMARK") {
     const bookmarkId = String(message.bookmarkId);
     pendingBookmarkRemovals.add(bookmarkId);
@@ -1337,6 +1815,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 chrome.tabs.onCreated.addListener(notifyTabsChanged);
 chrome.tabs.onRemoved.addListener((tabId) => {
+  clearTabFormState(tabId);
   removeTabFromRecent(tabId);
   notifyTabsChanged();
 });
@@ -1347,9 +1826,17 @@ chrome.tabs.onReplaced.addListener((_addedTabId, removedTabId) => {
   removeTabFromRecent(removedTabId);
   notifyTabsChanged();
 });
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === "loading" || "url" in changeInfo) {
+    clearTabFormState(tabId);
+  }
   if ("url" in changeInfo) rememberBookmarkVisitForTab(tabId);
-  if (["title", "url", "favIconUrl", "audible", "pinned"].some((key) =>
+  if ("url" in changeInfo && tab?.active) {
+    rememberTabVisit(tabId);
+  } else if (["title", "favIconUrl"].some((key) => key in changeInfo)) {
+    updateTabHistoryMetadata(tabId);
+  }
+  if (["title", "url", "favIconUrl", "audible", "pinned", "discarded"].some((key) =>
     key in changeInfo
   )) {
     notifyTabsChanged();
@@ -1371,6 +1858,16 @@ chrome.bookmarks.onMoved.addListener(notifyBookmarksChanged);
 chrome.bookmarks.onChildrenReordered.addListener(notifyBookmarksChanged);
 
 chrome.windows.onCreated.addListener(notifyTabsChanged);
+
+chrome.alarms?.onAlarm?.addListener((alarm) => {
+  if (alarm.name === SMART_SLEEP_ALARM_NAME) runSmartSleepScan().catch(() => {});
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  loadSmartSleepSettings().then(scheduleSmartSleepAlarm).catch(() => {});
+});
+
+loadSmartSleepSettings().then(scheduleSmartSleepAlarm).catch(() => {});
 
 chrome.windows.onRemoved.addListener((windowId) => {
   if (windowId === switcherWindowId) {

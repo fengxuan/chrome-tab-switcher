@@ -23,6 +23,8 @@
   --surface-ring: #ffffff;
   --recent-color: #16a34a;
   --recent-ring: rgba(22, 163, 74, 0.16);
+  --sleeping-color: #8b95a7;
+  --sleeping-ring: rgba(139, 149, 167, 0.2);
   --favicon-background: #f1f3f7;
   --favicon-fallback-background: #e7ecff;
   --favicon-fallback-text: #5870da;
@@ -65,6 +67,8 @@
     --surface-ring: #202124;
     --recent-color: #81c995;
     --recent-ring: rgba(129, 201, 149, 0.2);
+    --sleeping-color: #9aa0a6;
+    --sleeping-ring: rgba(154, 160, 166, 0.24);
     --favicon-background: #303134;
     --favicon-fallback-background: #39466b;
     --favicon-fallback-text: #a8c7fa;
@@ -307,6 +311,26 @@ kbd {
   font-size: 12px;
 }
 
+.window-section.is-history-group {
+  border-top: 1px solid var(--card-border);
+  padding-top: 8px;
+}
+
+.history-group-label {
+  display: block;
+  margin: 0 0 2px;
+  color: var(--secondary-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.history-group-label::before {
+  content: "↶";
+  margin-right: 4px;
+  color: var(--selected-border);
+}
+
 .window-row.is-merged {
   display: flex;
   gap: 32px;
@@ -380,6 +404,17 @@ kbd {
   transform: translateY(-1px);
 }
 
+.tab-card.is-sleeping {
+  border-style: dashed;
+  opacity: 0.72;
+}
+
+.tab-card.is-sleeping:hover,
+.tab-card.is-sleeping:focus-visible,
+.tab-card.is-sleeping.selected {
+  opacity: 0.92;
+}
+
 .close-tab {
   position: absolute;
   top: 4px;
@@ -418,7 +453,7 @@ kbd {
 .favorite-toggle {
   position: absolute;
   top: 4px;
-  right: 6px;
+  left: 6px;
   z-index: 2;
   display: grid;
   width: 22px;
@@ -437,6 +472,15 @@ kbd {
   transition: opacity 130ms ease, background 130ms ease, color 130ms ease, transform 130ms ease;
 }
 
+.tab-card.is-bookmark-card .favorite-toggle {
+  right: 6px;
+  left: auto;
+}
+
+.tab-card.has-favorite-toggle .tab-indicators {
+  left: 35px;
+}
+
 .tab-card:hover .favorite-toggle,
 .tab-card:focus-visible .favorite-toggle,
 .favorite-toggle:focus-visible {
@@ -453,6 +497,10 @@ kbd {
 
 .favorite-toggle.is-removed {
   color: var(--muted-text);
+}
+
+.favorite-toggle.is-bookmarked {
+  color: var(--selected-border);
 }
 
 .tab-indicators {
@@ -480,6 +528,12 @@ kbd {
 .tab-indicator.is-status,
 .legend-dot.is-recent {
   background: var(--recent-color);
+}
+
+.tab-indicator.is-sleeping,
+.legend-dot.is-sleeping {
+  background: var(--sleeping-color);
+  box-shadow: 0 0 0 2px var(--surface-ring), 0 0 0 4px var(--sleeping-ring), 0 1px 5px var(--playing-shadow);
 }
 
 .favicon-slot {
@@ -638,6 +692,91 @@ kbd {
   text-align: inherit;
   cursor: pointer;
   appearance: none;
+}
+
+.status-legend:hover,
+.status-legend:focus-visible,
+.smart-sleep-settings[aria-expanded="true"] {
+  color: var(--title-text);
+  outline: 0;
+}
+
+.smart-sleep-control {
+  position: relative;
+  display: inline-flex;
+}
+
+.smart-sleep-panel {
+  position: absolute;
+  z-index: 10;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  display: flex;
+  width: 278px;
+  flex-direction: column;
+  gap: 10px;
+  transform: translateX(-50%);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--card-background);
+  box-shadow: 0 8px 24px var(--playing-shadow);
+  padding: 13px;
+  color: var(--title-text);
+  text-align: left;
+}
+
+.smart-sleep-panel strong {
+  font-size: 13px;
+}
+
+.smart-sleep-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--secondary-text);
+  font-size: 12px;
+}
+
+.smart-sleep-option input {
+  accent-color: var(--selected-border);
+}
+
+.smart-sleep-duration {
+  justify-content: space-between;
+}
+
+.smart-sleep-duration select {
+  border: 1px solid var(--key-border);
+  border-radius: 6px;
+  background: var(--key-background);
+  color: var(--primary-text);
+  padding: 4px 7px;
+  font-size: 12px;
+}
+
+.smart-sleep-panel p {
+  margin: 0;
+  color: var(--muted-text);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.smart-sleep-close {
+  align-self: flex-end;
+  border: 1px solid var(--key-border);
+  border-radius: 6px;
+  background: var(--key-background);
+  color: var(--key-text);
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.smart-sleep-close:hover,
+.smart-sleep-close:focus-visible {
+  border-color: var(--selected-border);
+  outline: 0;
+  color: var(--selected-border);
 }
 
 .status-legend .legend-dot {

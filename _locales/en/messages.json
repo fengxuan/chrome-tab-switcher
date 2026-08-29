@@ -83,8 +83,82 @@
   "nativeAppsFilterShowNativeTitle": {
     "message": "Click to show only native macOS application windows"
   },
+  "smartSleepLabel": {
+    "message": "Smart sleep"
+  },
+  "smartSleepEnabled": {
+    "message": "On"
+  },
+  "smartSleepDisabled": {
+    "message": "Off"
+  },
+  "smartSleepSettingsAriaLabel": {
+    "message": "Configure smart sleep"
+  },
+  "smartSleepSettingsTitle": {
+    "message": "Configure smart sleep"
+  },
+  "smartSleepSettingsEnabledTitle": {
+    "message": "Smart sleep is on; click to adjust settings"
+  },
+  "smartSleepPanelTitle": {
+    "message": "Smart sleep"
+  },
+  "smartSleepEnabledLabel": {
+    "message": "Automatically sleep idle tabs"
+  },
+  "smartSleepIdleLabel": {
+    "message": "Idle for"
+  },
+  "smartSleepMinutes30": {
+    "message": "30 minutes"
+  },
+  "smartSleepMinutes60": {
+    "message": "1 hour"
+  },
+  "smartSleepMinutes120": {
+    "message": "2 hours"
+  },
+  "smartSleepMinutes240": {
+    "message": "4 hours"
+  },
+  "smartSleepMinutes480": {
+    "message": "8 hours"
+  },
+  "smartSleepProtectionHint": {
+    "message": "Playing, pinned, recently visited, and tabs with form input are protected."
+  },
+  "smartSleepClose": {
+    "message": "Done"
+  },
+  "historyRecommendationLabel": {
+    "message": "Recently viewed · 7 days"
+  },
+  "historyTabTitle": {
+    "message": "Viewed in the last 7 days; click to reopen"
+  },
+  "historyTabSuffix": {
+    "message": ", viewed in the last 7 days; click to reopen"
+  },
   "favoritesSearchPlaceholder": {
     "message": "Search bookmarks by title, URL, or pinyin…"
+  },
+  "addBookmarkLabel": {
+    "message": "Bookmark tab: $TITLE$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      }
+    }
+  },
+  "addBookmarkTitle": {
+    "message": "Bookmark tab"
+  },
+  "bookmarkAddedLabel": {
+    "message": "Bookmarked"
+  },
+  "bookmarkAddedTitle": {
+    "message": "Bookmarked"
   },
   "removeBookmarkLabel": {
     "message": "Remove this bookmark"
@@ -224,6 +298,12 @@
   },
   "playingTabTitle": {
     "message": "This tab is playing audio or video"
+  },
+  "sleepingTabTitle": {
+    "message": "This tab is sleeping and will reload when opened"
+  },
+  "sleepingTabSuffix": {
+    "message": ", sleeping; reloads when opened"
   },
   "loadErrorTitle": {
     "message": "Failed to read tabs"

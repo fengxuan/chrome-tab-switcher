@@ -5,8 +5,16 @@
   "name": "__MSG_extensionName__",
   "version": "0.1.0",
   "description": "__MSG_extensionDescription__",
-  "permissions": ["tabs", "windows", "storage", "bookmarks", "nativeMessaging"],
+  "permissions": ["tabs", "windows", "storage", "bookmarks", "nativeMessaging", "alarms", "scripting"],
   "host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["tab-guard.js"],
+      "all_frames": true,
+      "run_at": "document_start"
+    }
+  ],
   "background": {
     "service_worker": "background.js"
   },

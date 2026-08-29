@@ -83,8 +83,82 @@
   "nativeAppsFilterShowNativeTitle": {
     "message": "点击只显示 macOS 原生应用窗口"
   },
+  "smartSleepLabel": {
+    "message": "智能休眠"
+  },
+  "smartSleepEnabled": {
+    "message": "开启"
+  },
+  "smartSleepDisabled": {
+    "message": "关闭"
+  },
+  "smartSleepSettingsAriaLabel": {
+    "message": "设置智能休眠"
+  },
+  "smartSleepSettingsTitle": {
+    "message": "设置智能休眠"
+  },
+  "smartSleepSettingsEnabledTitle": {
+    "message": "智能休眠已开启，点击调整设置"
+  },
+  "smartSleepPanelTitle": {
+    "message": "智能休眠"
+  },
+  "smartSleepEnabledLabel": {
+    "message": "自动休眠闲置标签页"
+  },
+  "smartSleepIdleLabel": {
+    "message": "空闲时长"
+  },
+  "smartSleepMinutes30": {
+    "message": "30 分钟"
+  },
+  "smartSleepMinutes60": {
+    "message": "1 小时"
+  },
+  "smartSleepMinutes120": {
+    "message": "2 小时"
+  },
+  "smartSleepMinutes240": {
+    "message": "4 小时"
+  },
+  "smartSleepMinutes480": {
+    "message": "8 小时"
+  },
+  "smartSleepProtectionHint": {
+    "message": "正在播放、固定、最近访问或正在填写表单的标签页不会休眠。"
+  },
+  "smartSleepClose": {
+    "message": "完成"
+  },
+  "historyRecommendationLabel": {
+    "message": "最近 7 天 · 推荐"
+  },
+  "historyTabTitle": {
+    "message": "最近 7 天访问过的页面，点击后重新打开"
+  },
+  "historyTabSuffix": {
+    "message": "，最近 7 天访问过，点击后重新打开"
+  },
   "favoritesSearchPlaceholder": {
     "message": "搜索收藏夹标题、网址或拼音…"
+  },
+  "addBookmarkLabel": {
+    "message": "收藏标签页：$TITLE$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      }
+    }
+  },
+  "addBookmarkTitle": {
+    "message": "收藏标签页"
+  },
+  "bookmarkAddedLabel": {
+    "message": "已收藏"
+  },
+  "bookmarkAddedTitle": {
+    "message": "已收藏"
   },
   "removeBookmarkLabel": {
     "message": "取消收藏此书签"
@@ -224,6 +298,12 @@
   },
   "playingTabTitle": {
     "message": "此标签页正在播放音频或视频"
+  },
+  "sleepingTabTitle": {
+    "message": "此标签页已休眠，点击后将重新加载"
+  },
+  "sleepingTabSuffix": {
+    "message": "，已休眠，点击后重新加载"
   },
   "loadErrorTitle": {
     "message": "读取标签页失败"

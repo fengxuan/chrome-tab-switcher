@@ -83,8 +83,82 @@
   "nativeAppsFilterShowNativeTitle": {
     "message": "クリックしてネイティブアプリウィンドウのみ表示"
   },
+  "smartSleepLabel": {
+    "message": "スマートスリープ"
+  },
+  "smartSleepEnabled": {
+    "message": "オン"
+  },
+  "smartSleepDisabled": {
+    "message": "オフ"
+  },
+  "smartSleepSettingsAriaLabel": {
+    "message": "スマートスリープを設定"
+  },
+  "smartSleepSettingsTitle": {
+    "message": "スマートスリープを設定"
+  },
+  "smartSleepSettingsEnabledTitle": {
+    "message": "スマートスリープはオンです。クリックして設定を変更"
+  },
+  "smartSleepPanelTitle": {
+    "message": "スマートスリープ"
+  },
+  "smartSleepEnabledLabel": {
+    "message": "アイドル状態のタブを自動的にスリープ"
+  },
+  "smartSleepIdleLabel": {
+    "message": "アイドル時間"
+  },
+  "smartSleepMinutes30": {
+    "message": "30 分"
+  },
+  "smartSleepMinutes60": {
+    "message": "1 時間"
+  },
+  "smartSleepMinutes120": {
+    "message": "2 時間"
+  },
+  "smartSleepMinutes240": {
+    "message": "4 時間"
+  },
+  "smartSleepMinutes480": {
+    "message": "8 時間"
+  },
+  "smartSleepProtectionHint": {
+    "message": "再生中、固定、最近アクセスしたタブ、フォーム入力中のタブは保護されます。"
+  },
+  "smartSleepClose": {
+    "message": "完了"
+  },
+  "historyRecommendationLabel": {
+    "message": "最近 7 日間 · おすすめ"
+  },
+  "historyTabTitle": {
+    "message": "過去 7 日間にアクセスしたページ。クリックして再度開く"
+  },
+  "historyTabSuffix": {
+    "message": "、過去 7 日間にアクセス。クリックして再度開く"
+  },
   "favoritesSearchPlaceholder": {
     "message": "ブックマークをタイトル、URL、ピンインで検索…"
+  },
+  "addBookmarkLabel": {
+    "message": "タブをブックマーク: $TITLE$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      }
+    }
+  },
+  "addBookmarkTitle": {
+    "message": "タブをブックマーク"
+  },
+  "bookmarkAddedLabel": {
+    "message": "ブックマーク済み"
+  },
+  "bookmarkAddedTitle": {
+    "message": "ブックマーク済み"
   },
   "removeBookmarkLabel": {
     "message": "このブックマークを削除"
@@ -224,6 +298,12 @@
   },
   "playingTabTitle": {
     "message": "このタブでは音声または動画を再生中です"
+  },
+  "sleepingTabTitle": {
+    "message": "このタブはスリープ中です。開くと再読み込みされます"
+  },
+  "sleepingTabSuffix": {
+    "message": "、スリープ中。開くと再読み込み"
   },
   "loadErrorTitle": {
     "message": "タブの読み込みに失敗しました"

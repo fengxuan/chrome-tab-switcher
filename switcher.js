@@ -2,7 +2,12 @@ const initialView = new URLSearchParams(window.location.search).get("view");
 const appState = {
   windows: [],
   bookmarkGroups: [],
+  historyTabs: [],
   macWindowState: null,
+  smartSleep: {
+    enabled: false,
+    idleMinutes: 60
+  },
   sourceTabId: null,
   selectedTabId: null,
   query: "",
@@ -22,6 +27,7 @@ const MAC_WINDOW_POLL_INTERVAL_MS = 2200;
 const TITLE_MAX_LINES = 3;
 const TITLE_BREAK_LOOKBACK = 16;
 const TITLE_BREAK_PATTERN = /[\s\p{P}\p{S}]/u;
+const HISTORY_RECOMMENDATION_LIMIT = 6;
 
 // The full pinyinjs phrase dictionary is large. Keep only a small set of
 // common ambiguous words that are likely to appear in browser tab titles.
@@ -38,7 +44,10 @@ const COMMON_PINYIN_PHRASES_BY_LENGTH = [...COMMON_PINYIN_PHRASES.keys()]
   .sort((first, second) => second.length - first.length);
 
 function normalizeSearchText(text = "") {
-  return text.toLocaleLowerCase().replace(/\s+/g, "");
+  return String(text ?? "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\p{White_Space}\p{Cf}\p{Cc}]+/gu, "");
 }
 
 function splitPinyinSegments(text = "") {
@@ -95,6 +104,7 @@ function toPinyin(text = "", initials = false) {
 function indexTab(tab) {
   const searchableFields = [
     tab.title,
+    getDisplayTitle(tab.title || tab.url),
     tab.url,
     tab.host,
     tab.windowLabel,
@@ -117,12 +127,79 @@ const elements = {
   nativeStatus: document.querySelector("#native-status"),
   recentFilter: document.querySelector("#recent-filter"),
   favoritesFilter: document.querySelector("#favorites-filter"),
-  nativeAppsFilter: document.querySelector("#native-apps-filter")
+  nativeAppsFilter: document.querySelector("#native-apps-filter"),
+  smartSleepSettings: document.querySelector("#smart-sleep-settings"),
+  smartSleepPanel: document.querySelector("#smart-sleep-panel"),
+  smartSleepEnabled: document.querySelector("#smart-sleep-enabled"),
+  smartSleepIdleMinutes: document.querySelector("#smart-sleep-idle-minutes"),
+  smartSleepClose: document.querySelector("#smart-sleep-close")
 };
 
 function localizedMessage(name, substitutions = [], fallback = name) {
   const message = chrome.i18n?.getMessage?.(name, substitutions);
   return message || fallback;
+}
+
+function updateSmartSleepAccessibility() {
+  const enabled = Boolean(appState.smartSleep.enabled);
+  const label = localizedMessage("smartSleepLabel", [], "智能休眠");
+  elements.smartSleepSettings.textContent = "";
+  const indicator = document.createElement("i");
+  indicator.className = "legend-dot is-sleeping";
+  indicator.setAttribute("aria-hidden", "true");
+  const labelElement = document.createElement("span");
+  labelElement.textContent = `${label} · ${localizedMessage(
+    enabled ? "smartSleepEnabled" : "smartSleepDisabled",
+    [],
+    enabled ? "开启" : "关闭"
+  )}`;
+  elements.smartSleepSettings.append(indicator, labelElement);
+  elements.smartSleepSettings.setAttribute(
+    "aria-label",
+    localizedMessage(
+      "smartSleepSettingsAriaLabel",
+      [],
+      "设置智能休眠"
+    )
+  );
+  elements.smartSleepSettings.title = localizedMessage(
+    enabled ? "smartSleepSettingsEnabledTitle" : "smartSleepSettingsTitle",
+    [],
+    enabled ? "智能休眠已开启，点击调整设置" : "设置智能休眠"
+  );
+  elements.smartSleepEnabled.checked = enabled;
+  elements.smartSleepIdleMinutes.value = String(appState.smartSleep.idleMinutes);
+}
+
+function updateSmartSleepTranslations() {
+  document.querySelector("#smart-sleep-panel-title").textContent = localizedMessage(
+    "smartSleepPanelTitle",
+    [],
+    "智能休眠"
+  );
+  document.querySelector("#smart-sleep-enabled-label").textContent = localizedMessage(
+    "smartSleepEnabledLabel",
+    [],
+    "自动休眠闲置标签页"
+  );
+  document.querySelector("#smart-sleep-idle-label").textContent = localizedMessage(
+    "smartSleepIdleLabel",
+    [],
+    "空闲时长"
+  );
+  document.querySelector("#smart-sleep-protection-hint").textContent = localizedMessage(
+    "smartSleepProtectionHint",
+    [],
+    "正在播放、固定、最近访问或正在填写表单的标签页不会休眠。"
+  );
+  elements.smartSleepClose.textContent = localizedMessage(
+    "smartSleepClose",
+    [],
+    "完成"
+  );
+  document.querySelectorAll("#smart-sleep-idle-minutes option").forEach((option) => {
+    option.textContent = localizedMessage(option.dataset.message, [], option.textContent);
+  });
 }
 
 function updateRecentFilterAccessibility() {
@@ -249,6 +326,8 @@ function applyTranslations() {
     [],
     "关闭"
   );
+  updateSmartSleepTranslations();
+  updateSmartSleepAccessibility();
   updateRecentFilterAccessibility();
   updateFavoritesFilterAccessibility();
 }
@@ -332,6 +411,44 @@ function updateBookmarkToggle(toggle, tab, removed) {
   toggle.dataset.bookmarkId = String(tab.bookmarkId);
 }
 
+function updateTabBookmarkToggle(toggle, tab) {
+  if (!toggle) return;
+  const isBookmarked = Boolean(tab.isBookmarked);
+  const displayTitle = getDisplayTitle(tab.title || tab.url);
+  toggle.classList.toggle("is-bookmarked", isBookmarked);
+  toggle.setAttribute("aria-label", localizedMessage(
+    isBookmarked ? "bookmarkAddedLabel" : "addBookmarkLabel",
+    [displayTitle],
+    isBookmarked ? "已收藏" : `收藏标签页：${displayTitle}`
+  ));
+  toggle.setAttribute("aria-pressed", String(isBookmarked));
+  toggle.title = localizedMessage(
+    isBookmarked ? "bookmarkAddedTitle" : "addBookmarkTitle",
+    [],
+    isBookmarked ? "已收藏" : "收藏标签页"
+  );
+  toggle.textContent = isBookmarked ? "★" : "☆";
+}
+
+async function addBookmark(tab, bookmarkToggle) {
+  if (!tab.canBookmark || tab.isBookmarked) return;
+  bookmarkToggle.disabled = true;
+  try {
+    const response = await send({
+      type: "ADD_BOOKMARK",
+      url: tab.url,
+      title: tab.title
+    });
+    if (!response?.ok) throw new Error(response?.error || "add bookmark failed");
+    tab.isBookmarked = true;
+    updateTabBookmarkToggle(bookmarkToggle, tab);
+  } catch {
+    updateTabBookmarkToggle(bookmarkToggle, tab);
+  } finally {
+    bookmarkToggle.disabled = false;
+  }
+}
+
 function clearRemovedBookmarks() {
   if (!appState.removedBookmarks.size) return;
   const removedIds = new Set(appState.removedBookmarks.keys());
@@ -384,9 +501,13 @@ function matchesQuery(tab) {
     ? tab.bookmarkRecentRank
     : tab.recentRank;
   if (appState.recentOnly && !recentRank) return false;
+  return matchesSearch(tab);
+}
+
+function matchesSearch(tab) {
   const query = normalizeSearchText(appState.query);
   if (!query) return true;
-  return (tab.searchText || indexTab(tab).searchText).includes(query);
+  return indexTab(tab).searchText.includes(query);
 }
 
 function visibleWindowGroups() {
@@ -421,6 +542,10 @@ function visibleGroups() {
 }
 
 function groupLabel(group) {
+  if (group.isHistoryGroup) {
+    return group.window.windowLabel
+      || localizedMessage("historyRecommendationLabel", [], "最近 7 天访问记录");
+  }
   if (group.isBookmarkGroup) {
     return group.window.windowLabel
       || localizedMessage("favoritesFilterLabel", [], "收藏夹");
@@ -436,7 +561,42 @@ function windowCategory(group) {
 }
 
 function visibleTabs() {
-  return visibleGroups().flatMap((group) => group.tabs);
+  return [
+    ...visibleGroups().flatMap((group) => group.tabs),
+    ...visibleHistoryTabs()
+  ];
+}
+
+function historyMatchScore(tab) {
+  const query = normalizeSearchText(appState.query);
+  const title = normalizeSearchText(tab.title);
+  const host = normalizeSearchText(tab.host);
+  const url = normalizeSearchText(tab.url);
+  let score = 0;
+  if (title === query) score += 1000;
+  else if (title.startsWith(query)) score += 800;
+  else if (title.includes(query)) score += 600;
+  if (host === query) score += 500;
+  else if (host.startsWith(query)) score += 400;
+  else if (host.includes(query)) score += 300;
+  if (url.startsWith(query)) score += 250;
+  else if (url.includes(query)) score += 150;
+  return score;
+}
+
+function visibleHistoryTabs() {
+  if (appState.favoritesOnly || appState.nativeAppsOnly || appState.recentOnly) {
+    return [];
+  }
+  if (!normalizeSearchText(appState.query)) return [];
+  return appState.historyTabs
+    .filter(matchesSearch)
+    .sort((first, second) =>
+      historyMatchScore(second) - historyMatchScore(first)
+      || second.historyLastVisitedAt - first.historyLastVisitedAt
+      || second.historyVisitCount - first.historyVisitCount
+    )
+    .slice(0, HISTORY_RECOMMENDATION_LIMIT);
 }
 
 function isSmallWindowGroup(group) {
@@ -587,9 +747,11 @@ function displayWindowRows(groups) {
 
 function createWindowSection(group) {
   const section = document.createElement("section");
-  section.className = `window-section${group.isBookmarkGroup && group.label
-    ? " is-bookmark-group"
-    : ""}`;
+  section.className = [
+    "window-section",
+    group.isBookmarkGroup && group.label ? "is-bookmark-group" : "",
+    group.isHistoryGroup ? "is-history-group" : ""
+  ].filter(Boolean).join(" ");
   section.dataset.windowId = String(group.window.id);
   const labelText = groupLabel(group);
   section.setAttribute(
@@ -597,9 +759,11 @@ function createWindowSection(group) {
     labelText
   );
 
-  if (group.isBookmarkGroup && group.label) {
+  if ((group.isBookmarkGroup || group.isHistoryGroup) && group.label) {
     const label = document.createElement("h2");
-    label.className = "bookmark-group-label";
+    label.className = group.isHistoryGroup
+      ? "history-group-label"
+      : "bookmark-group-label";
     label.textContent = group.label;
     section.append(label);
   }
@@ -764,7 +928,18 @@ function fitTabTitles() {
 
 function createCard(tab) {
   const card = document.createElement("div");
-  card.className = `tab-card${tab.isMacWindow ? " is-mac-window" : ""}`;
+  const canAddBookmark = !tab.isBookmark
+    && !tab.isHistory
+    && !tab.isMacWindow
+    && tab.canBookmark;
+  card.className = [
+    "tab-card",
+    tab.isMacWindow ? "is-mac-window" : "",
+    tab.isBookmark ? "is-bookmark-card" : "",
+    tab.isHistory ? "is-history-card" : "",
+    tab.sleeping ? "is-sleeping" : "",
+    canAddBookmark ? "has-favorite-toggle" : ""
+  ].filter(Boolean).join(" ");
   card.setAttribute("role", "button");
   card.tabIndex = 0;
   card.dataset.tabId = String(tab.id);
@@ -774,6 +949,16 @@ function createCard(tab) {
     : getDisplayTitle(tab.title || tab.appName);
   const recentRank = tab.isBookmark ? tab.bookmarkRecentRank : tab.recentRank;
   const statusLabels = [
+    tab.isHistory
+      ? localizedMessage(
+        "historyTabTitle",
+        [],
+        "最近 7 天访问记录中的页面，点击后重新打开"
+      )
+      : "",
+    tab.sleeping
+      ? localizedMessage("sleepingTabTitle", [], "此标签页已休眠，点击后将重新加载")
+      : "",
     recentRank
       ? localizedMessage(
         tab.isBookmark ? "bookmarkRecentRank" : "recentRank",
@@ -783,6 +968,16 @@ function createCard(tab) {
       : ""
   ].filter(Boolean);
   const details = [
+    tab.isHistory
+      ? localizedMessage(
+        "historyTabSuffix",
+        [],
+        "，最近 7 天访问过，点击后重新打开"
+      )
+      : "",
+    tab.sleeping
+      ? localizedMessage("sleepingTabSuffix", [], "，已休眠，点击后重新加载")
+      : "",
     tab.pinned
       ? localizedMessage("pinnedSuffix", [], "，已固定")
       : "",
@@ -822,10 +1017,20 @@ function createCard(tab) {
   const indicators = document.createElement("span");
   indicators.className = "tab-indicators";
   indicators.setAttribute("aria-hidden", "true");
-  if (statusLabels.length) {
+  if (tab.sleeping) {
+    const sleepingIndicator = document.createElement("span");
+    sleepingIndicator.className = "tab-indicator is-sleeping";
+    sleepingIndicator.title = localizedMessage(
+      "sleepingTabTitle",
+      [],
+      "此标签页已休眠，点击后将重新加载"
+    );
+    indicators.append(sleepingIndicator);
+  }
+  if (recentRank) {
     const statusIndicator = document.createElement("span");
     statusIndicator.className = "tab-indicator is-status";
-    statusIndicator.title = statusLabels.join("；");
+    statusIndicator.title = statusLabels.filter(Boolean).join("；");
     indicators.append(statusIndicator);
   }
 
@@ -862,6 +1067,18 @@ function createCard(tab) {
     bookmarkToggle.addEventListener("click", (event) => {
       event.stopPropagation();
       removeBookmark(tab, bookmarkToggle);
+    });
+    bookmarkToggle.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+    });
+  } else if (canAddBookmark) {
+    bookmarkToggle = document.createElement("button");
+    bookmarkToggle.type = "button";
+    bookmarkToggle.className = "favorite-toggle";
+    updateTabBookmarkToggle(bookmarkToggle, tab);
+    bookmarkToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      addBookmark(tab, bookmarkToggle);
     });
     bookmarkToggle.addEventListener("keydown", (event) => {
       event.stopPropagation();
@@ -913,6 +1130,8 @@ function createCard(tab) {
 
 function render({ centerSelected = true, revealSelected = true } = {}) {
   const groups = visibleGroups();
+  const historyTabs = visibleHistoryTabs();
+  const hasContent = groups.length > 0 || historyTabs.length > 0;
   if (appState.favoritesOnly) {
     elements.empty.querySelector("h2").textContent = localizedMessage(
       "favoritesEmptyTitle",
@@ -947,9 +1166,9 @@ function render({ centerSelected = true, revealSelected = true } = {}) {
       "换一个关键词试试，或清空搜索框查看全部标签。"
     );
   }
-  elements.empty.hidden = groups.length !== 0;
-  elements.content.hidden = groups.length === 0;
-  if (!groups.length) {
+  elements.empty.hidden = hasContent;
+  elements.content.hidden = !hasContent;
+  if (!hasContent) {
     scheduleResize();
     return;
   }
@@ -968,6 +1187,27 @@ function render({ centerSelected = true, revealSelected = true } = {}) {
     }
 
     if (row) elements.windowGroups.append(row);
+  }
+
+  if (historyTabs.length) {
+    elements.windowGroups.append(createWindowSection({
+      id: "history",
+      isHistoryGroup: true,
+      label: localizedMessage(
+        "historyRecommendationLabel",
+        [],
+        "最近 7 天访问记录"
+      ),
+      window: {
+        id: "history",
+        windowLabel: localizedMessage(
+          "historyRecommendationLabel",
+          [],
+          "最近 7 天访问记录"
+        )
+      },
+      tabs: historyTabs
+    }));
   }
 
   fitTabTitles();
@@ -1191,7 +1431,15 @@ function updateState(data) {
       ...group,
       tabs: group.tabs.map(indexTab)
     }));
+  appState.historyTabs = (data.historyTabs || []).map(indexTab);
   appState.sourceTabId = data.sourceTabId;
+  if (data.smartSleep) {
+    appState.smartSleep = {
+      enabled: Boolean(data.smartSleep.enabled),
+      idleMinutes: Number(data.smartSleep.idleMinutes) || 60
+    };
+    updateSmartSleepAccessibility();
+  }
   appState.macWindowState = data.macWindowState || null;
   updateNativeStatus(appState.macWindowState);
 
@@ -1257,6 +1505,10 @@ setInterval(() => {
 }, MAC_WINDOW_POLL_INTERVAL_MS);
 
 function activate(tab) {
+  if (tab.isHistory) {
+    send({ type: "OPEN_HISTORY_TAB", url: tab.url }).catch(() => {});
+    return;
+  }
   if (tab.isBookmark) {
     send({ type: "OPEN_BOOKMARK", url: tab.url }).catch(() => {});
     return;
@@ -1284,6 +1536,28 @@ function closeTab(tab) {
     type: "CLOSE_TAB",
     tabId: tab.id
   }).catch(() => {});
+}
+
+function setSmartSleepPanelOpen(isOpen) {
+  elements.smartSleepPanel.hidden = !isOpen;
+  elements.smartSleepSettings.setAttribute("aria-expanded", String(isOpen));
+}
+
+async function updateSmartSleepSettings(settings) {
+  try {
+    const response = await send({
+      type: "UPDATE_SMART_SLEEP_SETTINGS",
+      settings
+    });
+    if (!response?.ok || !response.settings) return;
+    appState.smartSleep = {
+      enabled: Boolean(response.settings.enabled),
+      idleMinutes: Number(response.settings.idleMinutes) || 60
+    };
+    updateSmartSleepAccessibility();
+  } catch {
+    updateSmartSleepAccessibility();
+  }
 }
 
 function activateSelected() {
@@ -1350,6 +1624,39 @@ function setView(view) {
 function toggleFavoritesFilter() {
   setFavoritesFilter(!appState.favoritesOnly);
 }
+
+elements.smartSleepSettings.addEventListener("click", () => {
+  setSmartSleepPanelOpen(elements.smartSleepPanel.hidden);
+});
+elements.smartSleepSettings.addEventListener("keydown", (event) => {
+  event.stopPropagation();
+});
+elements.smartSleepPanel.addEventListener("click", (event) => {
+  event.stopPropagation();
+});
+elements.smartSleepPanel.addEventListener("keydown", (event) => {
+  event.stopPropagation();
+  if (event.key === "Escape") {
+    event.preventDefault();
+    setSmartSleepPanelOpen(false);
+  }
+});
+elements.smartSleepClose.addEventListener("click", () => {
+  setSmartSleepPanelOpen(false);
+});
+elements.smartSleepEnabled.addEventListener("change", () => {
+  updateSmartSleepSettings({ enabled: elements.smartSleepEnabled.checked });
+});
+elements.smartSleepIdleMinutes.addEventListener("change", () => {
+  updateSmartSleepSettings({
+    idleMinutes: Number(elements.smartSleepIdleMinutes.value)
+  });
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".smart-sleep-control")) {
+    setSmartSleepPanelOpen(false);
+  }
+});
 
 elements.recentFilter.addEventListener("click", toggleRecentFilter);
 elements.recentFilter.addEventListener("keydown", (event) => {

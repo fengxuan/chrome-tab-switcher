@@ -37,6 +37,30 @@
 
       <footer class="footer-hint">
         <button id="recent-filter" class="status-legend" type="button" aria-label="只显示最近切换的标签页" aria-pressed="false" title="点击只显示最近切换的标签页"><i class="legend-dot is-recent" aria-hidden="true"></i><span id="recent-filter-label">最近切换</span></button>
+        <span class="smart-sleep-control">
+          <button id="smart-sleep-settings" class="status-legend" type="button" aria-expanded="false" aria-controls="smart-sleep-panel" title="设置智能休眠">
+            <i class="legend-dot is-sleeping" aria-hidden="true"></i><span id="smart-sleep-label">智能休眠</span>
+          </button>
+          <span id="smart-sleep-panel" class="smart-sleep-panel" hidden role="dialog" aria-labelledby="smart-sleep-panel-title">
+            <strong id="smart-sleep-panel-title">智能休眠</strong>
+            <label class="smart-sleep-option">
+              <input id="smart-sleep-enabled" type="checkbox">
+              <span id="smart-sleep-enabled-label">自动休眠闲置标签页</span>
+            </label>
+            <label class="smart-sleep-option smart-sleep-duration">
+              <span id="smart-sleep-idle-label">空闲时长</span>
+              <select id="smart-sleep-idle-minutes">
+                <option value="30" data-message="smartSleepMinutes30">30 分钟</option>
+                <option value="60" data-message="smartSleepMinutes60">1 小时</option>
+                <option value="120" data-message="smartSleepMinutes120">2 小时</option>
+                <option value="240" data-message="smartSleepMinutes240">4 小时</option>
+                <option value="480" data-message="smartSleepMinutes480">8 小时</option>
+              </select>
+            </label>
+            <p id="smart-sleep-protection-hint">正在播放、固定、最近访问或正在填写表单的标签页不会休眠。</p>
+            <button id="smart-sleep-close" class="smart-sleep-close" type="button">完成</button>
+          </span>
+        </span>
         <span><kbd>← ↑ ↓ →</kbd><kbd>Tab</kbd> <span id="hint-control">控制选择</span></span>
         <span><kbd>Enter</kbd> <span id="hint-open">打开</span></span>
         <span><kbd>Esc</kbd> <span id="hint-close">关闭</span></span>
