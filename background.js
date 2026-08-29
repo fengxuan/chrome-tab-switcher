@@ -40,7 +40,8 @@ const VISIBLE_WINDOW_TYPES = new Set(["normal", "popup", "app", "panel"]);
 const SWITCHER_SESSION_STATE_KEYS = [
   "switcherWindowId",
   "sourceWindowId",
-  "sourceTabId"
+  "sourceTabId",
+  "switcherInputSourceID"
 ];
 const SESSION_STATE_KEYS = [
   ...SWITCHER_SESSION_STATE_KEYS,
@@ -51,6 +52,7 @@ const TABS_CHANGED_DEBOUNCE_MS = 100;
 let switcherWindowId = null;
 let sourceWindowId = null;
 let sourceTabId = null;
+let switcherInputSourceID = null;
 let recentTabIds = [];
 let sessionStateLoaded = false;
 let sessionStateLoadPromise = null;
@@ -195,6 +197,9 @@ async function loadSessionState() {
       if (Number.isInteger(state.sourceTabId)) {
         sourceTabId = state.sourceTabId;
       }
+      if (typeof state.switcherInputSourceID === "string") {
+        switcherInputSourceID = state.switcherInputSourceID;
+      }
       if (Array.isArray(state.recentTabIds)) {
         recentTabIds = state.recentTabIds
           .filter((tabId) => Number.isInteger(tabId))
@@ -215,6 +220,7 @@ async function saveSessionState() {
     switcherWindowId,
     sourceWindowId,
     sourceTabId,
+    switcherInputSourceID,
     recentTabIds
   };
   sessionStateWritePromise = sessionStateWritePromise
@@ -732,6 +738,7 @@ async function getSwitcherWindowId() {
   if (switcherWindowId === null) {
     sourceWindowId = null;
     sourceTabId = null;
+    await restoreInputSource();
     await clearSessionState();
   } else {
     await saveSessionState();
@@ -743,6 +750,41 @@ async function sendToSwitcher(message) {
   const windowId = await getSwitcherWindowId();
   if (windowId === null) return;
   chrome.runtime.sendMessage(message).catch(() => {});
+}
+
+let inputSourceChangePromise = null;
+
+function selectEnglishInputSource() {
+  if (!isMacOS() || inputSourceChangePromise) {
+    return inputSourceChangePromise || Promise.resolve();
+  }
+
+  inputSourceChangePromise = (async () => {
+    await loadSessionState();
+    if (switcherInputSourceID !== null) return;
+
+    const result = await requestNative("select_english_input_source");
+    if (!result?.ok || typeof result.inputSourceID !== "string") return;
+    switcherInputSourceID = result.inputSourceID;
+    await saveSessionState();
+  })()
+    .catch(() => {})
+    .finally(() => {
+      inputSourceChangePromise = null;
+    });
+
+  return inputSourceChangePromise;
+}
+
+async function restoreInputSource() {
+  if (inputSourceChangePromise) await inputSourceChangePromise;
+
+  const inputSourceID = switcherInputSourceID;
+  switcherInputSourceID = null;
+  if (inputSourceID === null || !isMacOS()) return;
+
+  await requestNative("restore_input_source", { inputSourceID })
+    .catch(() => {});
 }
 
 function getMacWindowSnapshot() {
@@ -839,6 +881,7 @@ async function closeSwitcherWindow() {
     chrome.windows.remove(windowId).catch(() => {})
   ));
 
+  await restoreInputSource();
   sourceWindowId = null;
   sourceTabId = null;
   await clearSessionState();
@@ -1434,6 +1477,7 @@ async function toggleSwitcherInternal({
         type: "SET_VIEW",
         view: requestedView
       }).catch(() => {});
+      selectEnglishInputSource();
       return;
     }
     await closeSwitcherWindow();
@@ -1481,6 +1525,7 @@ async function toggleSwitcherInternal({
   switcherWindowId = created.id ?? null;
   switcherWindowStateResolved = true;
   await saveSessionState();
+  selectEnglishInputSource();
 }
 
 function toggleSwitcher(options = {}) {
@@ -1875,7 +1920,9 @@ chrome.windows.onRemoved.addListener((windowId) => {
     switcherWindowStateResolved = true;
     sourceWindowId = null;
     sourceTabId = null;
-    clearSessionState();
+    restoreInputSource()
+      .finally(() => clearSessionState())
+      .catch(() => {});
   }
   notifyTabsChanged();
 });
