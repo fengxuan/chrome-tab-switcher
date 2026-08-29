@@ -20,6 +20,9 @@
   "nativeAppsCommandDescription": {
     "message": "Show only native macOS application windows"
   },
+  "smartSleepCommandDescription": {
+    "message": "Open smart sleep settings"
+  },
   "languageCode": {
     "message": "en"
   },

@@ -1,4 +1,6 @@
-const initialView = new URLSearchParams(window.location.search).get("view");
+const initialParams = new URLSearchParams(window.location.search);
+const initialView = initialParams.get("view");
+const initialSmartSleepSettings = initialParams.get("settings") === "smart-sleep";
 const appState = {
   windows: [],
   bookmarkGroups: [],
@@ -10,6 +12,7 @@ const appState = {
   },
   sourceTabId: null,
   selectedTabId: null,
+  stateSignature: "",
   query: "",
   recentOnly: false,
   favoritesOnly: initialView === "favorites",
@@ -1421,7 +1424,7 @@ function updateState(data) {
     return;
   }
 
-  const isInitialState = appState.selectedTabId === null;
+  const isInitialState = appState.stateSignature === "";
   appState.windows = (data.windows || []).map((window) => ({
     ...window,
     tabs: window.tabs.map(indexTab)
@@ -1439,9 +1442,22 @@ function updateState(data) {
       idleMinutes: Number(data.smartSleep.idleMinutes) || 60
     };
     updateSmartSleepAccessibility();
+    if (initialSmartSleepSettings) setSmartSleepPanelOpen(true);
   }
   appState.macWindowState = data.macWindowState || null;
   updateNativeStatus(appState.macWindowState);
+
+  const nextStateSignature = JSON.stringify({
+    windows: appState.windows,
+    bookmarkGroups: appState.bookmarkGroups,
+    historyTabs: appState.historyTabs,
+    sourceTabId: appState.sourceTabId,
+    smartSleep: appState.smartSleep,
+    macWindowState: appState.macWindowState
+  });
+  const stateChanged = nextStateSignature !== appState.stateSignature;
+  appState.stateSignature = nextStateSignature;
+  if (!stateChanged && !isInitialState) return;
 
   const visible = visibleTabs();
   if (!visible.some((tab) => tab.id === appState.selectedTabId)) {
@@ -1721,6 +1737,9 @@ document.addEventListener("keydown", (event) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "TABS_CHANGED") scheduleRefresh();
+  if (message?.type === "OPEN_SMART_SLEEP_SETTINGS") {
+    setSmartSleepPanelOpen(true);
+  }
   if (message?.type === "MAC_WINDOWS_UPDATED") {
     updateMacWindows(message.windows, message.macWindowState);
   }

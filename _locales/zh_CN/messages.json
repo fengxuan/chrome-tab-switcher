@@ -20,6 +20,9 @@
   "nativeAppsCommandDescription": {
     "message": "只显示 macOS 原生应用窗口"
   },
+  "smartSleepCommandDescription": {
+    "message": "打开智能休眠设置"
+  },
   "languageCode": {
     "message": "zh-CN"
   },

@@ -20,6 +20,9 @@
   "nativeAppsCommandDescription": {
     "message": "macOS のネイティブアプリウィンドウのみを表示"
   },
+  "smartSleepCommandDescription": {
+    "message": "スマートスリープ設定を開く"
+  },
   "languageCode": {
     "message": "ja"
   },

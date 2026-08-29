@@ -646,7 +646,9 @@ async function runSmartSleepScan() {
   if (smartSleepScanPromise) return smartSleepScanPromise;
   smartSleepScanPromise = (async () => {
     await loadSmartSleepSettings();
-    if (!smartSleepSettings.enabled) return;
+    // Keep the switcher interaction stable. A discard here would make a tab
+    // reload later when the user activates it from the open switcher.
+    if (!smartSleepSettings.enabled || switcherWindowId !== null) return;
 
     const now = Date.now();
     const idleMilliseconds = smartSleepSettings.idleMinutes * 60 * 1000;
@@ -1458,7 +1460,8 @@ function requestSwitcherResize(contentHeight, frameHeight) {
 async function toggleSwitcherInternal({
   favoritesOnly = false,
   nativeAppsOnly = false,
-  view = ""
+  view = "",
+  openSmartSleepSettings = false
 } = {}) {
   const requestedView = view || (nativeAppsOnly
     ? "apps"
@@ -1470,13 +1473,19 @@ async function toggleSwitcherInternal({
       populate: true
     }).catch(() => null);
     const currentView = switcherView(existingWindow);
-    if (requestedView !== "all" || currentView !== "all") {
+    if (openSmartSleepSettings || requestedView !== "all" || currentView !== "all") {
       await chrome.windows.update(switcherWindowId, { focused: true })
         .catch(() => {});
-      chrome.runtime.sendMessage({
-        type: "SET_VIEW",
-        view: requestedView
-      }).catch(() => {});
+      if (openSmartSleepSettings) {
+        chrome.runtime.sendMessage({
+          type: "OPEN_SMART_SLEEP_SETTINGS"
+        }).catch(() => {});
+      } else {
+        chrome.runtime.sendMessage({
+          type: "SET_VIEW",
+          view: requestedView
+        }).catch(() => {});
+      }
       selectEnglishInputSource();
       return;
     }
@@ -1497,10 +1506,13 @@ async function toggleSwitcherInternal({
   const allWindows = await chrome.windows.getAll({ populate: true });
   const windows = normalizeWindows(allWindows);
   const size = getPopupSize(windows, currentWindow);
+  const switcherURL = requestedView === "all"
+    ? SWITCHER_URL
+    : `${SWITCHER_URL}?view=${requestedView}`;
   const createOptions = {
-    url: requestedView === "all"
-      ? SWITCHER_URL
-      : `${SWITCHER_URL}?view=${requestedView}`,
+    url: openSmartSleepSettings
+      ? `${switcherURL}${switcherURL.includes("?") ? "&" : "?"}settings=smart-sleep`
+      : switcherURL,
     type: "popup",
     focused: true,
     width: size.width,
@@ -1734,9 +1746,14 @@ async function removeTabFromRecent(tabId) {
 }
 
 function notifyTabsChanged() {
+  // The switcher is a separate extension window. Do not queue a refresh for
+  // events emitted while it is being created or closed; its own tab events do
+  // not change the list shown in the switcher.
+  if (switcherWindowId === null) return;
   if (tabsChangedTimer !== null) return;
   tabsChangedTimer = setTimeout(() => {
     tabsChangedTimer = null;
+    if (switcherWindowId === null) return;
     sendToSwitcher({ type: "TABS_CHANGED" });
   }, TABS_CHANGED_DEBOUNCE_MS);
 }
@@ -1745,15 +1762,18 @@ chrome.commands.onCommand.addListener((command) => {
   if (command === "open-tab-switcher") toggleSwitcher();
   if (command === "open-favorites") toggleSwitcher({ favoritesOnly: true });
   if (command === "open-native-apps") toggleSwitcher({ nativeAppsOnly: true });
+  if (command === "open-smart-sleep") {
+    toggleSwitcher({ openSmartSleepSettings: true });
+  }
 });
 
 chrome.action.onClicked.addListener(() => toggleSwitcher());
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
+  if (windowId === switcherWindowId) return;
   rememberRecentTab(tabId, windowId);
   rememberBookmarkVisitForTab(tabId);
   rememberTabVisit(tabId);
-  notifyTabsChanged();
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1858,7 +1878,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-chrome.tabs.onCreated.addListener(notifyTabsChanged);
+chrome.tabs.onCreated.addListener((tab) => {
+  if (isExtensionPage(tabUrl(tab)) || tab?.windowId === switcherWindowId) return;
+  notifyTabsChanged();
+});
 chrome.tabs.onRemoved.addListener((tabId) => {
   clearTabFormState(tabId);
   removeTabFromRecent(tabId);
@@ -1872,6 +1895,7 @@ chrome.tabs.onReplaced.addListener((_addedTabId, removedTabId) => {
   notifyTabsChanged();
 });
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (isExtensionPage(tabUrl(tab)) || tab?.windowId === switcherWindowId) return;
   if (changeInfo.status === "loading" || "url" in changeInfo) {
     clearTabFormState(tabId);
   }

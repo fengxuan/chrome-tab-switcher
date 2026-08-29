@@ -477,12 +477,13 @@ kbd {
   left: auto;
 }
 
-.tab-card.has-favorite-toggle .tab-indicators {
+.tab-card.selected.has-favorite-toggle .tab-indicators {
   left: 35px;
 }
 
 .tab-card:hover .favorite-toggle,
 .tab-card:focus-visible .favorite-toggle,
+.tab-card.selected .favorite-toggle,
 .favorite-toggle:focus-visible {
   opacity: 1;
   pointer-events: auto;

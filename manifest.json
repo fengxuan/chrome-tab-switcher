@@ -42,6 +42,13 @@
         "mac": "Command+Shift+G"
       },
       "description": "__MSG_nativeAppsCommandDescription__"
+    },
+    "open-smart-sleep": {
+      "suggested_key": {
+        "default": "Ctrl+Alt+Shift+S",
+        "mac": "Command+Option+Shift+S"
+      },
+      "description": "__MSG_smartSleepCommandDescription__"
     }
   }
 }
