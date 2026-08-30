@@ -129,9 +129,9 @@ macOS Helper 运行后会显示在菜单栏中。它需要保持运行，才能�
 
 ## 快捷键同步
 
-扩展快捷键和 macOS Helper 中对应的三个扩展功能快捷键必须一致；macOS 原生窗口切换器是 Helper 的独立功能。
+扩展快捷键和 macOS Helper 中对应的三个扩展功能快捷键必须一致；macOS 原生窗口切换器是 Helper 的独立功能。Chrome 不提供修改扩展快捷键的公开 API，因此 Helper 会使用已有的辅助功能权限自动操作 Chrome 的快捷键设置页。
 
-菜单栏 Helper 的“分别设置快捷键…”可以为普通切换器、收藏夹、原生应用和 macOS 窗口切换器四个功能分别录入快捷键。修改前三个功能后，还需要在 `chrome://extensions/shortcuts` 中把“Chrome Tab Switcher”的对应命令改成相同组合。
+菜单栏 Helper 的“分别设置快捷键…”可以为普通切换器、收藏夹、原生应用和 macOS 窗口切换器四个功能分别录入快捷键。保存前三个功能后，Helper 会打开 `chrome://extensions/shortcuts`，将“Chrome Tab Switcher”的对应命令自动录入为相同组合；Chrome 页面可能会短暂显示在前台。若自动同步失败，设置窗口会保留错误提示，此时可在该页面手动设置。
 
 ## 使用方式
 
@@ -231,7 +231,7 @@ rm "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.loc
 
 ### 全局快捷键没有反应
 
-检查菜单栏 Helper 是否正在运行，以及快捷键是否与其它应用、系统功能或 Chrome 扩展冲突。修改快捷键后，必须同时更新 Chrome 的扩展快捷键。
+检查菜单栏 Helper 是否正在运行，以及快捷键是否与其它应用、系统功能或 Chrome 扩展冲突。修改快捷键后，确认 Chrome 的快捷键设置页已显示相同组合；如果自动同步失败，请检查辅助功能权限，并在 `chrome://extensions/shortcuts` 中手动设置。
 
 ## 权限与隐私
 
